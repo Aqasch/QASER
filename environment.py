@@ -564,6 +564,13 @@ class CircuitEnv():
         elif self.fn_type == 'F0_energy_untweaked':
             return pow((self.max_len/ (self.current_len+1)) + (self.max_cost / self.current_cost),
                     (self.energy/self.min_eig))
+
+        elif self.fn_type == 'F0_energy_tweaked':
+            if (self.error < self.done_threshold):
+                rwd = 400
+            else:
+                rwd =  pow((self.max_len/ (self.current_len+1)) + (self.max_cost / self.current_cost),
+                        (self.energy/self.min_eig))
         
         elif self.fn_type == "staircase":
             return (0.2 * (self.error < 15 * self.done_threshold) +

@@ -235,16 +235,6 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     np.random.seed(args.seed)
-
-    # wandb_project = 
-    # wandb_entity = 
-
-    # wandb.login()
-    # run = wandb.init(project=wandb_project,
-    #                 config=conf,
-    #                 entity= wandb_entity,
-    #                 group=args.wandb_group,
-    #                 name=args.wandb_name)
     
 
     actions_test = []
