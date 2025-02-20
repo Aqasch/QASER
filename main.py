@@ -223,8 +223,8 @@ if __name__ == '__main__':
 
     results_path ="results/"
     pathlib.Path(f"{results_path}{args.experiment_name}{args.config}").mkdir(parents=True, exist_ok=True)
-    # device = torch.device(f"cuda:{args.gpu_id}")
-    device = torch.device(f"cpu:0")
+    device = torch.device(f"cuda:{args.gpu_id}")
+    # device = torch.device(f"cpu:0")
     
     
     conf = get_config(args.experiment_name, f'{args.config}.cfg')
@@ -235,16 +235,6 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     np.random.seed(args.seed)
-
-    # wandb_project = 
-    # wandb_entity = 
-
-    # wandb.login()
-    # run = wandb.init(project=wandb_project,
-    #                 config=conf,
-    #                 entity= wandb_entity,
-    #                 group=args.wandb_group,
-    #                 name=args.wandb_name)
     
 
     actions_test = []
