@@ -2,7 +2,7 @@
 
 import torch
 from qulacs.gate import CNOT, RX, RY, RZ
-from utils_qas import *
+from utils import *
 from sys import stdout
 import scipy
 import VQE as vc
