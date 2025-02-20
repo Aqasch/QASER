@@ -272,6 +272,7 @@ class CircuitEnv():
 
         # print(self.current_cost)
         rwd = self.reward_fn(energy)
+        self.rwd = rwd
 
         self.max_len = max(self.max_len, self.current_len)
         self.max_cost = max(self.max_cost, self.current_cost)

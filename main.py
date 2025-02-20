@@ -10,7 +10,7 @@ from utils import get_config
 from environment import CircuitEnv
 import agents
 import time
-import wandb
+# import wandb
 # os.environ['WANDB_DISABLED'] = 'true'
 torch.set_num_threads(1)
 
@@ -30,7 +30,8 @@ class Saver:
                                                  'bond_distance': 0,
                                                  'nfev': [], 
                                                  'opt_ang': [],
-                                                 'time' : []
+                                                 'time' : [],
+                                                 'reward' : []
                                                  }
         elif mode == 'test':
             self.stats_file[mode][episode_no] = {'actions': [],
@@ -135,8 +136,8 @@ def one_episode(episode_no, env, agent, episodes):
         assert type(env.error) == float
         agent.saver.stats_file['train'][episode_no]['errors'].append(env.error)
         agent.saver.stats_file['train'][episode_no]['errors_noiseless'].append(env.error_noiseless)
-        
         agent.saver.stats_file['train'][episode_no]['time'].append(time.time()-t0)
+        agent.saver.stats_file['train'][episode_no]['reward'].append(env.rwd)
 
         # wandb.log(
         # {"train_by_step/step_no": itr,
@@ -184,7 +185,7 @@ def one_episode(episode_no, env, agent, episodes):
             assert type(loss) == float
             agent.saver.stats_file['train'][episode_no]['loss'].append(loss)
             agent.saver.validate_stats(episode_no, 'train')
-            wandb.log({"train_by_step/loss":loss})
+            # wandb.log({"train_by_step/loss":loss})
             
             
 
@@ -210,8 +211,8 @@ def get_args(argv):
     parser.add_argument('--config', type=str, default='h_s_2', help='Name of configuration file')
     parser.add_argument('--experiment_name', type=str, default='lower_bound_energy/', help='Name of experiment')
     parser.add_argument('--gpu_id', type=int, default=0, help='Set specific GPU to run experiment [0, 1, ...]')
-    parser.add_argument('--wandb_group', type=str, default='test/', help='Group of experiment run for wandb')
-    parser.add_argument('--wandb_name', type=str, default='test/', help='Name of experiment run for wandb')
+    # parser.add_argument('--wandb_group', type=str, default='test/', help='Group of experiment run for wandb')
+    # parser.add_argument('--wandb_name', type=str, default='test/', help='Name of experiment run for wandb')
     args = parser.parse_args(argv)
     return args
 
@@ -269,4 +270,4 @@ if __name__ == '__main__':
     torch.save(agent.policy_net.state_dict(), f"{results_path}{args.experiment_name}{args.config}/thresh_{conf['env']['accept_err']}_{args.seed}_model.pth")
     torch.save(agent.optim.state_dict(), f"{results_path}{args.experiment_name}{args.config}/thresh_{conf['env']['accept_err']}_{args.seed}_optim.pth")
 
-    wandb.finish()
+    # wandb.finish()
