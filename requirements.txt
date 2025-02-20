@@ -1,0 +1,5 @@
+torch
+cirq
+qulacs
+numpy
+wandb
