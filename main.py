@@ -6,7 +6,7 @@ import os
 import argparse
 import pathlib
 import copy
-from utils_qas import get_config
+from utils import get_config
 from environment import CircuitEnv
 import agents
 import time
@@ -223,8 +223,8 @@ if __name__ == '__main__':
 
     results_path ="results/"
     pathlib.Path(f"{results_path}{args.experiment_name}{args.config}").mkdir(parents=True, exist_ok=True)
-    # device = torch.device(f"cuda:{args.gpu_id}")
-    device = torch.device(f"cpu:0")
+    device = torch.device(f"cuda:{args.gpu_id}")
+    # device = torch.device(f"cpu:0")
     
     
     conf = get_config(args.experiment_name, f'{args.config}.cfg')
