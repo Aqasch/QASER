@@ -1,9 +1,10 @@
 import numpy as np
-from itertools import product
+from itertools import product, accumulate
 from qiskit import QuantumCircuit
+import matplotlib.pyplot as plt
+
 
 post_process_val_8q_h2o = - 77.89106685 + 73.29410675728349
-
 def dictionary_of_actions(num_qubits):
     dictionary = dict()
     i = 0
@@ -37,9 +38,20 @@ def make_circuit_qiskit(action, qubits, circuit):
 data = np.load(f'results/finalize/lbmt_cobyla_8qH2O_step_250_F0_energy_untweaked/summary_1.npy',allow_pickle=True)[()]
 episodes = len(data['train'].keys())
 err_list = []
+rwd_list = []
+cumulative_rwd_per_ep_list = []
 for ep in range(100, episodes):
     err = data['train'][ep]['errors'][-1]+post_process_val_8q_h2o
+    rwd = data['train'][ep]['reward'][-1]
+    cumulative_rwd_per_ep = sum(data['train'][ep]['reward'])
     err_list.append(err)
+    rwd_list.append(rwd)
+    cumulative_rwd_per_ep_list.append(cumulative_rwd_per_ep)
+
+cumulative_rewards = list(accumulate(rwd_list))
+# plt.plot(rwd_list, 'o', markersize = 4)
+plt.plot(cumulative_rwd_per_ep_list, 'o', markersize = 4)
+plt.plot(cumulative_rewards, label = 'cumulative reward')
 
 succ_ep = np.argmin(err_list)
 actions = data['train'][succ_ep]['actions']
@@ -52,4 +64,4 @@ print(final_circuit)
 print(final_circuit.depth())
 print(gate_info)
 
-
+plt.savefig('rwd_plot_h20.png')
