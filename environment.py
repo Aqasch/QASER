@@ -10,6 +10,7 @@ import os
 import numpy as np
 import copy
 import cirq
+# from optimize_minimize import minimize
 import curricula
 from collections import Counter
 try:
@@ -71,8 +72,13 @@ class CircuitEnv():
         
         
         self.curriculum_dict = {}
-        __ham = np.load(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
-        print(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
+        if self.mol != 'heisenberg':
+            ham_file = f'{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}'
+        else:
+            ham_file = f'{self.mol}_{self.num_qubits}q_{self.ham_mapping}'
+
+        __ham = np.load(f"mol_data/{ham_file}.npz")
+        print(f"mol_data/{ham_file}.npz")
         
         
         _, _, eigvals, energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
@@ -92,7 +98,11 @@ class CircuitEnv():
         self.max_len = self.num_layers
         self.max_cost = float(conf['env']['max_cost'])
         
+        # print(len(eigvals), min(eigvals))
+        # exit()
 
+        # print(sum(self.weights)-11.8, min(eigvals))
+        # exit()
         stdout.flush()
         self.state_size = self.num_layers*self.num_qubits*(self.num_qubits+3+3)
         self.step_counter = -1
@@ -175,9 +185,13 @@ class CircuitEnv():
             gate_tensor = max( self.moments[ctrl], self.moments[targ] )
 
         if ctrl < self.num_qubits:
+            # next_state[10+gate_tensor][targ][ctrl] = 1
             next_state[gate_tensor][targ][ctrl] = 1
         elif rot_qubit < self.num_qubits:
+            # next_state[10+gate_tensor][self.num_qubits+rot_axis-1][rot_qubit] = 1
             next_state[gate_tensor][self.num_qubits+rot_axis-1][rot_qubit] = 1
+
+        # print(next_state[:3])
 
         if rot_qubit < self.num_qubits:
             self.moments[ rot_qubit ] += 1
@@ -186,34 +200,15 @@ class CircuitEnv():
             self.moments[ctrl] = max_of_two_moments +1
             self.moments[targ] = max_of_two_moments +1
             
-        
         self.current_action = action
         self.illegal_action_new()
-
         if self.optim_method in ["scipy_each_step"]:
             thetas, nfev, opt_ang = self.scipy_optim(self.optim_alg)
             for i in range(self.num_layers):
                 for j in range(3):
                     next_state[i][self.num_qubits+3+j,:] = thetas[i][j,:]
-        
-        
-        
-
-        if self.optim_method in ["SPSA3"]:
-            thetas, nfev, opt_ang = self.adam_spsa_3()
-            for i in range(self.num_layers):
-                for j in range(3):
-                    next_state[i][self.num_qubits+3+j,:] = thetas[i][j,:]
-
-        if self.optim_method in ["SPSA"]:
-            thetas, nfev, opt_ang = self.adam_spsa_1()
-            for i in range(self.num_layers):
-                for j in range(3):
-                    next_state[i][self.num_qubits+3+j,:] = thetas[i][j,:]
-            
 
         self.state = next_state.clone()
-        
         energy,energy_noiseless = self.get_energy()
 
         if self.noise_flag == False:
@@ -226,9 +221,10 @@ class CircuitEnv():
     
         self.error = float(abs(self.min_eig-energy))
         self.error_noiseless = float(abs(self.min_eig-energy_noiseless))
-        
-        # print(self.error_noiseless)
+        # post_process_val = - 6 + 3.969001749928544
+        # post_process_val = 0
 
+        print(self.error)
         circuit = self.make_circuit()
         total_gate_count = circuit.get_gate_count()
         
@@ -262,6 +258,8 @@ class CircuitEnv():
                 cirq_circuit.append(cirq.CNOT(ctrl_qubit, tgt_qubit))
         # print(cirq_circuit)
         self.current_circuit = cirq_circuit
+
+        # print(self.current_circuit)
 
         self.current_degree = self._get_average_degree()
         self.current_len = self._len_move_to_left()
@@ -316,6 +314,23 @@ class CircuitEnv():
         
         state = torch.zeros((self.num_layers, self.num_qubits+3+3, self.num_qubits))
         self.state = state
+
+        # for q in range(self.num_qubits):
+        #     state[0][self.num_qubits+1-1][q] = 1
+        #     state[1][self.num_qubits+2-1][q] = 1
+        
+        # state[2][0][1] = 1
+        # state[3][1][2] = 1
+        # state[4][2][3] = 1
+        # state[5][3][4] = 1
+        # state[6][4][5] = 1
+        # state[7][5][6] = 1
+        # state[8][6][7] = 1
+        # state[9][7][8] = 1
+
+        # for i in range(self.num_layers):
+            # for j in range(3):
+                # self.state[i][self.num_qubits+3+j,:] = np.random.uniform(0,np.pi)
         
         
         if self.random_halt:
@@ -337,7 +352,12 @@ class CircuitEnv():
         self.curriculum = copy.deepcopy(self.curriculum_dict[str(self.current_bond_distance)])
         self.done_threshold = copy.deepcopy(self.curriculum.get_current_threshold())
         self.geometry = self.geometry[:-3] + str(self.current_bond_distance)
-        __ham = np.load(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
+        if self.mol != 'heisenberg':
+            ham_file = f'{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}'
+        else:
+            ham_file = f'{self.mol}_{self.num_qubits}q_{self.ham_mapping}'
+
+        __ham = np.load(f"mol_data/{ham_file}.npz")
         self.hamiltonian, self.weights,eigvals, self.energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
         self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
         self.max_eig = max(eigvals)+self.energy_shift
@@ -364,8 +384,9 @@ class CircuitEnv():
         circuit = ParametricQuantumCircuit(self.num_qubits)
         
         for i in range(self.num_layers):
-            
+            # print(state[i])
             cnot_pos = np.where(state[i][0:self.num_qubits] == 1)
+            # print(cnot_pos)
             targ = cnot_pos[0]
             ctrl = cnot_pos[1]
             
@@ -428,7 +449,6 @@ class CircuitEnv():
         qulacs_circuit = qulacs_inst.construct_ansatz(state)
         
         x0 = np.asarray(angles.cpu().detach())
-
         def cost(x):
             return vc.get_energy_qulacs(x, observable = self.hamiltonian,
             weights = self.weights, circuit = qulacs_circuit,
@@ -437,61 +457,19 @@ class CircuitEnv():
                       which_angles=[])
 
         if list(which_angles):
+            # result_min_qulacs = minimize(cost, x0 = x0[which_angles], method = method, options = {'maxiter':self.global_iters})
             result_min_qulacs = scipy.optimize.minimize(cost, x0 = x0[which_angles], method = method, options = {'maxiter':self.global_iters})
             x0[which_angles] = result_min_qulacs['x']
             thetas = state[:, self.num_qubits+3:]
             thetas[rot_pos] = torch.tensor(x0, dtype=torch.float)
         else:
+            # result_min_qulacs = minimize(cost, x0 = x0[which_angles], method = method, options = {'maxiter':self.global_iters})
             result_min_qulacs = scipy.optimize.minimize(cost, x0 = x0, method = method, options = {'maxiter':self.global_iters})
             thetas = state[:, self.num_qubits+3:]
             thetas[rot_pos] = torch.tensor(result_min_qulacs['x'], dtype=torch.float)
 
         return thetas, result_min_qulacs['nfev'], result_min_qulacs['x']
 
-
-    def scipy_optim_(self, method, which_angles=[]):
-        state = self.state.clone()
-        thetas = state[:, self.num_qubits+3:]
-        rot_pos = (state[:,self.num_qubits: self.num_qubits+3] == 1).nonzero( as_tuple = True )
-        angles = thetas[rot_pos]
-
-        qulacs_inst = vc.Parametric_Circuit(n_qubits=self.num_qubits)
-        qulacs_circuit = qulacs_inst.construct_ansatz(state)
-        x0 = np.asarray(angles.cpu().detach())
-
-        if list(which_angles):
-            result_min_qulacs = scipy.optimize.minimize(vc.get_energy_qulacs, x0=x0[which_angles],
-                                                            args=(  self.hamiltonian,
-                                                                    self.weights,
-                                                                    qulacs_circuit, 
-                                                                    self.num_qubits, 
-                                                                    self.energy_shift, 
-                                                                    int(self.n_shots/100),
-                                                                    self.noise_value,
-                                                                    self.M,
-                                                                    which_angles),
-                                                            method=method,
-                                                            options={'maxiter':self.global_iters})
-            x0[which_angles] = result_min_qulacs['x']
-            thetas = state[:, self.num_qubits+3:]
-            thetas[rot_pos] = torch.tensor(x0, dtype=torch.float)
-        else:
-            result_min_qulacs = scipy.optimize.minimize(vc.get_energy_qulacs, x0=x0,
-                                                        args=(  self.hamiltonian,
-                                                                self.weights,
-                                                                qulacs_circuit, 
-                                                                self.num_qubits, 
-                                                                self.energy_shift, 
-                                                                int(self.n_shots/100),
-                                                                self.noise_value,
-                                                                self.M,
-                                                                which_angles),
-                                                        method=method,
-                                                        options={'maxiter':self.global_iters})
-            
-            thetas = state[:, self.num_qubits+3:]
-            thetas[rot_pos] = torch.tensor(result_min_qulacs['x'], dtype=torch.float)
-        return thetas, result_min_qulacs['x']
     
     def _get_average_cost(self) -> float:
         """
