@@ -3,3 +3,4 @@ cirq
 qulacs
 numpy
 wandb
+qiskit==1.1.0
