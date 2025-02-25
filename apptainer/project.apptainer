@@ -1,5 +1,5 @@
 Bootstrap: localimage
-From: images/rocm/pytorch:latest.sif
+From: images/qhronos.sif
 
 %files
     ../requirements.txt requirements.txt

@@ -10,12 +10,12 @@ APP_NAME="qhronos"
 
 base() {
     mkdir -p "$IMAGES_DIR"
-    apptainer build "$IMAGES_DIR/$BASE_IMAGE.sif" "docker://$BASE_IMAGE"
+    apptainer build "$IMAGES_DIR/qhronos.sif" "docker://$BASE_IMAGE"
 }
 
 build() {
     mkdir -p "$IMAGES_DIR"
-    apptainer build "$IMAGES_DIR/$APP_NAME.sif" project.apptainer
+    apptainer build "$IMAGES_DIR/qhronos.sif" project.apptainer
 }
 
 run() {
