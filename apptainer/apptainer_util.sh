@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -eu
+IMAGES_DIR="images"
+
+# the name of the docker image to start from
+BASE_IMAGE="rocm/pytorch:latest"
+
+# the name of the project
+APP_NAME="qhronos"
+
+base() {
+    mkdir -p "$IMAGES_DIR"
+    apptainer build "$IMAGES_DIR/qhronos.sif" "docker://$BASE_IMAGE"
+}
+
+build() {
+    mkdir -p "$IMAGES_DIR"
+    apptainer build "$IMAGES_DIR/qhronos.sif" project.apptainer
+}
+
+run() {
+    apptainer run "$IMAGES_DIR/$APP_NAME.sif" "$@"
+}
+
+# Pass arguments to the script
+case $1 in
+    (base)
+        base
+        ;;
+    (build)
+        build
+        ;;
+    (run)
+        shift
+        run "$@"
+        ;;
+    (*) exit 1
+esac
