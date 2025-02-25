@@ -33,7 +33,8 @@ class CircuitEnv():
         
         self.n_shots =   conf['env']['n_shots'] 
         noise_models = ['depolarizing', 'two_depolarizing', 'amplitude_damping']
-        noise_values = conf['env']['noise_values'] 
+        noise_values = conf['env']['noise_values']
+        self.warm_start = int(conf['env']['warm_start'])
         
         self.mol = conf['problem']['ham_type']
 
@@ -97,6 +98,7 @@ class CircuitEnv():
         self.done_threshold = conf['env']['accept_err']
         self.max_len = self.num_layers
         self.max_cost = float(conf['env']['max_cost'])
+
         
         # print(len(eigvals), min(eigvals))
         # exit()
@@ -185,11 +187,11 @@ class CircuitEnv():
             gate_tensor = max( self.moments[ctrl], self.moments[targ] )
 
         if ctrl < self.num_qubits:
-            # next_state[10+gate_tensor][targ][ctrl] = 1
-            next_state[gate_tensor][targ][ctrl] = 1
+            next_state[19+gate_tensor][targ][ctrl] = 1
+            # next_state[gate_tensor][targ][ctrl] = 1
         elif rot_qubit < self.num_qubits:
-            # next_state[10+gate_tensor][self.num_qubits+rot_axis-1][rot_qubit] = 1
-            next_state[gate_tensor][self.num_qubits+rot_axis-1][rot_qubit] = 1
+            next_state[19+gate_tensor][self.num_qubits+rot_axis-1][rot_qubit] = 1
+            # next_state[gate_tensor][self.num_qubits+rot_axis-1][rot_qubit] = 1
 
         # print(next_state[:3])
 
@@ -224,9 +226,10 @@ class CircuitEnv():
         # post_process_val = - 6 + 3.969001749928544
         # post_process_val = 0
 
-        print(self.error)
+        # print(self.error)
         circuit = self.make_circuit()
         total_gate_count = circuit.get_gate_count()
+        self.nfev = nfev
         
         # total_gate_count = circuit.get_gate_count()
         param_count = 0
@@ -260,6 +263,8 @@ class CircuitEnv():
         self.current_circuit = cirq_circuit
 
         # print(self.current_circuit)
+        # exit()
+
 
         self.current_degree = self._get_average_degree()
         self.current_len = self._len_move_to_left()
@@ -315,18 +320,42 @@ class CircuitEnv():
         state = torch.zeros((self.num_layers, self.num_qubits+3+3, self.num_qubits))
         self.state = state
 
-        # for q in range(self.num_qubits):
-        #     state[0][self.num_qubits+1-1][q] = 1
-        #     state[1][self.num_qubits+2-1][q] = 1
-        
-        # state[2][0][1] = 1
-        # state[3][1][2] = 1
-        # state[4][2][3] = 1
-        # state[5][3][4] = 1
-        # state[6][4][5] = 1
-        # state[7][5][6] = 1
-        # state[8][6][7] = 1
-        # state[9][7][8] = 1
+        if self.warm_start:
+            for q in range(self.num_qubits-2):
+                state[0][self.num_qubits+1-1][q] = 1
+            #     state[1][self.num_qubits+2-1][q] = 1
+            
+            state[2][0][1] = 1
+            state[3][1][2] = 1
+            state[4][2][3] = 1
+            state[5][3][4] = 1
+            state[6][4][5] = 1
+            state[7][5][6] = 1
+            state[8][6][7] = 1
+            state[9][7][8] = 1
+
+            state[10][self.num_qubits+2-1][q] = 1
+
+            state[11][7][8] = 1
+            state[12][6][7] = 1
+            state[13][5][6] = 1
+            state[14][4][5] = 1
+            state[15][3][4] = 1
+            state[16][2][3] = 1
+            state[17][1][2] = 1
+            state[18][0][1] = 1
+
+            for q in range(self.num_qubits-2):
+                state[19][self.num_qubits+1-1][q] = 1
+
+
+
+
+
+        # circ = self.make_circuit(state)
+        # print(circ.calculate_depth())
+
+
 
         # for i in range(self.num_layers):
             # for j in range(3):

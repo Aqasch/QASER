@@ -138,6 +138,7 @@ def one_episode(episode_no, env, agent, episodes):
         agent.saver.stats_file['train'][episode_no]['errors_noiseless'].append(env.error_noiseless)
         agent.saver.stats_file['train'][episode_no]['time'].append(time.time()-t0)
         agent.saver.stats_file['train'][episode_no]['reward'].append(env.rwd)
+        agent.saver.stats_file['train'][episode_no]['nfev'].append(env.nfev)
 
         # wandb.log(
         # {"train_by_step/step_no": itr,
@@ -224,8 +225,8 @@ if __name__ == '__main__':
 
     results_path ="results/"
     pathlib.Path(f"{results_path}{args.experiment_name}{args.config}").mkdir(parents=True, exist_ok=True)
-    device = torch.device(f"cuda:{args.gpu_id}")
-    # device = torch.device(f"cpu:0")
+    # device = torch.device(f"cuda:{args.gpu_id}")
+    device = torch.device(f"cpu:0")
     
     
     conf = get_config(args.experiment_name, f'{args.config}.cfg')
