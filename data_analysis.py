@@ -3,8 +3,16 @@ from itertools import product, accumulate
 from qiskit import QuantumCircuit
 import matplotlib.pyplot as plt
 
+__ham = np.load(f"mol_data/CH2_10q_geom_C_0.000_0.000_0.000;_H_1.080_0.000_0.000;_H_-0.225_1.056_0.000_jordan_wigner.npz")
+eig_val = min(__ham['eigvals'])
+print(f"EIG_VAL: ", eig_val)
 
+# fake min energy + true min energy
+post_process_val_10q_ch2 = -40 + (eig_val * -1)
 post_process_val_8q_h2o = - 77.89106685 + 73.29410675728349
+
+n_qub = 8
+
 def dictionary_of_actions(num_qubits):
     dictionary = dict()
     i = 0
@@ -35,7 +43,7 @@ def make_circuit_qiskit(action, qubits, circuit):
     return circuit
 
 
-data = np.load(f'results/finalize/lbmt_cobyla_8qH2O_step_250_F0_energy_untweaked/summary_1.npy',allow_pickle=True)[()]
+data = np.load(f'results/finalize/lbmt_cobyla_8qH2O_step_250_F0_energy_untweaked/summary_2.npy',allow_pickle=True)[()]
 episodes = len(data['train'].keys())
 err_list = []
 rwd_list = []
@@ -49,19 +57,21 @@ for ep in range(100, episodes):
     cumulative_rwd_per_ep_list.append(cumulative_rwd_per_ep)
 
 cumulative_rewards = list(accumulate(rwd_list))
+print(np.min(err_list), np.argmin(err_list))
+
 # plt.plot(rwd_list, 'o', markersize = 4)
 plt.plot(cumulative_rwd_per_ep_list, 'o', markersize = 4)
 plt.plot(cumulative_rewards, label = 'cumulative reward')
 
 succ_ep = np.argmin(err_list)
 actions = data['train'][succ_ep]['actions']
-circuit = QuantumCircuit(8)
+circuit = QuantumCircuit(n_qub)
 for a in actions:
-    action = dictionary_of_actions(8)[a]
-    final_circuit = make_circuit_qiskit(action, 8, circuit)
+    action = dictionary_of_actions(n_qub)[a]
+    final_circuit = make_circuit_qiskit(action, n_qub, circuit)
 gate_info = final_circuit.count_ops()
 print(final_circuit)
 print(final_circuit.depth())
 print(gate_info)
 
-plt.savefig('rwd_plot_h20.png')
+plt.savefig('rwd_plot_h2o.png')
