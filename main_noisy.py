@@ -7,7 +7,7 @@ import argparse
 import pathlib
 import copy
 from utils import get_config
-from environment_noisy import CircuitEnv
+from environment_noise import CircuitEnv
 import agents
 import time
 # import wandb

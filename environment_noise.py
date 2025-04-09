@@ -37,7 +37,6 @@ class CircuitEnv():
     def __init__(self, conf, device):
         self.num_qubits = conf['env']['num_qubits']
         self.num_layers = conf['env']['num_layers']
-        self.kickstart_depth = conf['env']['kickstart_depth']
 
         self.random_halt = int(conf['env']['rand_halt'])
         
@@ -107,7 +106,10 @@ class CircuitEnv():
         self.current_cost = 0
         self.current_degree = 0
         
-        if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up']:
+        if self.fn_type in ['F0_energy_depth_up']:
+            self.kickstart_depth = conf['env']['kickstart_depth']
+
+        if self.fn_type in ['F0_energy_untweaked']:
             self.max_cost = float(conf['env']['max_cost'])
             self.CNOT_WEIGHT = float(conf['env']['cnot_weight'])
             self.H_WEIGHT = float(conf['env']['h_weight'])
@@ -245,21 +247,22 @@ class CircuitEnv():
         self.error = float(abs(self.min_eig-energy))
         self.error_noiseless = float(abs(self.min_eig-energy_noiseless))
         
-        # print(self.error_noiseless)
-
         circuit = self.make_circuit()
         total_gate_count = circuit.get_gate_count()
         
-        # total_gate_count = circuit.get_gate_count()
         param_count = 0
+
         # create cirq quantum circuit
         cirq_circuit = cirq.Circuit()
         cirq_qubits = [cirq.NamedQubit(str(q)) for q in range(self.num_qubits)]
 
         for i in range(total_gate_count):
-            # print('hello')
+
             the_gate = circuit.get_gate(i)
             name_of_gate = the_gate.get_name()
+
+            if name_of_gate == 'Probabilistic':
+                continue
 
             if name_of_gate != 'CNOT':
                 # get the single gate qubit
@@ -278,13 +281,8 @@ class CircuitEnv():
                 ctrl_qubit = cirq_qubits[the_gate.get_control_index_list()[0]]
                 tgt_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
                 cirq_circuit.append(cirq.CNOT(ctrl_qubit, tgt_qubit))
-        # print(cirq_circuit)
+
         self.current_circuit = cirq_circuit        
-
-        # exit()
-        # print(the_operations_in_circuit
-
-        # print(self.current_cost)
 
         if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up']:
             self.current_len = self._len_move_to_left()
@@ -395,7 +393,7 @@ class CircuitEnv():
                     circuit.add_gate(CNOT(ctrl[r], targ[r]))
                     # TODO add 2 qubit depolarizing
                     gate = TwoQubitDepolarizingNoise(ctrl[r], targ[r], TWO_QUBIT_PROBA)
-                    self.ansatz.add_gate(gate)
+                    circuit.add_gate(gate)
                     
             rot_pos = np.where(state[i][self.num_qubits: self.num_qubits+3] == 1)
             
@@ -408,17 +406,17 @@ class CircuitEnv():
                         circuit.add_parametric_RX_gate(rot_qubit, thetas[i][0][rot_qubit]) 
                         # TODO add 1 qubit depolarizing
                         gate = DepolarizingNoise(rot_qubit, SINGLE_QUBIT_PROBA)
-                        self.ansatz.add_gate(gate)
+                        circuit.add_gate(gate)
                     elif r == 1:
                         circuit.add_parametric_RY_gate(rot_qubit, thetas[i][1][rot_qubit])
                         # TODO add 1 qubit depolarizing
                         gate = DepolarizingNoise(rot_qubit, SINGLE_QUBIT_PROBA)
-                        self.ansatz.add_gate(gate)
+                        circuit.add_gate(gate)
                     elif r == 2:
                         circuit.add_parametric_RZ_gate(rot_qubit, thetas[i][2][rot_qubit])
                         # TODO add 1 qubit depolarizing 
                         gate = DepolarizingNoise(rot_qubit, SINGLE_QUBIT_PROBA)
-                        self.ansatz.add_gate(gate)
+                        circuit.add_gate(gate)
                     else:
                         print(f'rot-axis = {r} is in invalid')
                         
