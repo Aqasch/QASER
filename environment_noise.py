@@ -2,15 +2,19 @@
 
 import torch
 from qulacs.gate import CNOT, RX, RY, RZ
+# TODO import noise models
+from qulacs.gate import DepolarizingNoise, TwoQubitDepolarizingNoise
+
 from utils import *
 from sys import stdout
 import scipy
-import VQE as vc
+import VQE_noise as vc
 import os
 import numpy as np
 import copy
 import cirq
 import curricula
+
 from collections import Counter
 try:
     from qulacs import QuantumStateGpu as QuantumState
@@ -21,6 +25,12 @@ from qulacs import ParametricQuantumCircuit
 
 import copy
 import time
+
+
+SINGLE_QUBIT_PROBA = 0.001
+TWO_QUBIT_PROBA = 0.01
+
+print(f"Running noisy environment with SINGLE_QUBIT_PROBA={SINGLE_QUBIT_PROBA} and TWO_QUBIT_PROBA={TWO_QUBIT_PROBA}")
 
 class CircuitEnv():
 
@@ -383,6 +393,9 @@ class CircuitEnv():
             if len(ctrl) != 0:
                 for r in range(len(ctrl)):
                     circuit.add_gate(CNOT(ctrl[r], targ[r]))
+                    # TODO add 2 qubit depolarizing
+                    gate = TwoQubitDepolarizingNoise(ctrl[r], targ[r], TWO_QUBIT_PROBA)
+                    self.ansatz.add_gate(gate)
                     
             rot_pos = np.where(state[i][self.num_qubits: self.num_qubits+3] == 1)
             
@@ -393,10 +406,19 @@ class CircuitEnv():
                     rot_qubit = rot_qubit_list[pos]
                     if r == 0:
                         circuit.add_parametric_RX_gate(rot_qubit, thetas[i][0][rot_qubit]) 
+                        # TODO add 1 qubit depolarizing
+                        gate = DepolarizingNoise(rot_qubit, SINGLE_QUBIT_PROBA)
+                        self.ansatz.add_gate(gate)
                     elif r == 1:
                         circuit.add_parametric_RY_gate(rot_qubit, thetas[i][1][rot_qubit])
+                        # TODO add 1 qubit depolarizing
+                        gate = DepolarizingNoise(rot_qubit, SINGLE_QUBIT_PROBA)
+                        self.ansatz.add_gate(gate)
                     elif r == 2:
                         circuit.add_parametric_RZ_gate(rot_qubit, thetas[i][2][rot_qubit])
+                        # TODO add 1 qubit depolarizing 
+                        gate = DepolarizingNoise(rot_qubit, SINGLE_QUBIT_PROBA)
+                        self.ansatz.add_gate(gate)
                     else:
                         print(f'rot-axis = {r} is in invalid')
                         
