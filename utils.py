@@ -82,7 +82,29 @@ def dictionary_of_actions(num_qubits):
         dictionary[i] = [num_qubits, 0, r, h]
         i += 1
     return dictionary
-        
+
+def dictionary_of_clifford_actions(num_qubits):
+    """
+    Creates dictionary of actions for system which steers positions of gates,
+    and axes of rotations.
+    """
+    dictionary = dict()
+    i = 0
+         
+    for c, x in product(range(num_qubits),
+                        range(1, num_qubits)):
+        dictionary[i] =  [c, x, num_qubits, 0]
+        i += 1
+   
+    """h  denotes rotation axis. 1, 2, 3 -->  X, Y, Z axes """
+    for r, h in product(range(num_qubits),
+                           range(1, 2)):
+        dictionary[i] = [num_qubits, 0, r, h]
+        i += 1
+    
+    return dictionary
+
+
 def dict_of_actions_revert_q(num_qubits):
     """
     Creates dictionary of actions for system which steers positions of gates,
@@ -103,24 +125,44 @@ def dict_of_actions_revert_q(num_qubits):
         i += 1
     return dictionary
         
+def dict_of_actions_revert_q_clifford(num_qubits):
+    """
+    Creates dictionary of actions for system which steers positions of gates,
+    and axes of rotations. Systems have reverted order to above dictionary of actions.
+    """
+    dictionary = dict()
+    i = 0
+         
+    for c, x in product(range(num_qubits-1,-1,-1),
+                        range(num_qubits-1,0,-1)):
+        dictionary[i] =  [c, x, num_qubits, 0]
+        i += 1
+   
+    """h  denotes rotation axis. 1, 2, 3 -->  X, Y, Z axes """
+    for r, h in product(range(num_qubits-1,-1,-1),
+                           range(1, 2)):
+        dictionary[i] = [num_qubits, 0, r, h]
+        i += 1
+    return dictionary
 
 if __name__ == '__main__':
-    from dataclasses import dataclass
+    # from dataclasses import dataclass
     
-    @dataclass
-    class Config:
-        num_qubits = 4
-        problem={"ham_type" : 'H2',
-        "geometry" : 'H .0 .0 +.35; H .0 .0 -.35',
-        "taper" : 0,
-        "mapping" : 'jordan_wigner'}
+    # @dataclass
+    # class Config:
+    #     num_qubits = 4
+    #     problem={"ham_type" : 'H2',
+    #     "geometry" : 'H .0 .0 +.35; H .0 .0 -.35',
+    #     "taper" : 0,
+    #     "mapping" : 'jordan_wigner'}
 
         
-    __ham = dict()    
+    # __ham = dict()    
     
-    __ham['hamiltonian'], __ham['weights'], __ham['eigvals'], __ham['energy_shift'] = gen_hamiltonian(Config.num_qubits, Config.problem)
-    __geometry = Config.problem['geometry'].replace(" ", "_")
-    print(np.min(__ham['eigvals'].real) + __ham['energy_shift'])
-    exit()
-    np.savez(f"mol_data/LiH_{Config.num_qubits}q_geom_{__geometry}_{Config.problem['mapping']}",**__ham)
+    # __ham['hamiltonian'], __ham['weights'], __ham['eigvals'], __ham['energy_shift'] = gen_hamiltonian(Config.num_qubits, Config.problem)
+    # __geometry = Config.problem['geometry'].replace(" ", "_")
+    # print(np.min(__ham['eigvals'].real) + __ham['energy_shift'])
+    # exit()
+    # np.savez(f"mol_data/LiH_{Config.num_qubits}q_geom_{__geometry}_{Config.problem['mapping']}",**__ham)
    
+    dictionary_of_clifford_actions(30)

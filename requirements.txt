@@ -1,5 +1,6 @@
 torch
 cirq
 qulacs
+stim
 numpy
 wandb

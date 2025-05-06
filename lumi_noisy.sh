@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-#SBATCH --job-name="n_lih"
+#SBATCH --job-name="e8h20"
 #SBATCH --partition=small-g
 #SBATCH --account project_462000520
-#SBATCH -o noisy_6qLiH_step_100_F0_energy_untweaked_seed0.out
+#SBATCH -o noisy_8qH2O_step_250_seed10.out
 #SBATCH --gpus=1
 #SBATCH --mem=6G
 #SBATCH --ntasks=1
@@ -13,7 +13,7 @@
 
 SCRIPTTORUN="
 cd /qhronos
-python3 main_noisy.py --seed 0 --config lbmt_cobyla_6qLiH_step_100_F0_energy_untweaked --experiment_name \"finalize/\"
+python3 main_noisy.py --seed 10 --config lbmt_cobyla_8qH2O_step_250 --experiment_name \"finalize/\"
 "
 
 export EXEC="srun singularity exec -B $(pwd):/qhronos apptainer/images/qhronos.sif"

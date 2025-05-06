@@ -1,17 +1,20 @@
 
 
 import torch
+import stim
 from qulacs.gate import CNOT, RX, RY, RZ
 from utils import *
 from sys import stdout
 import scipy
-import VQE as vc
+import clifford_simulation as vc
 import os
 import numpy as np
 import copy
 import cirq
 import curricula
 from collections import Counter
+from qiskit.quantum_info import state_fidelity
+
 try:
     from qulacs import QuantumStateGpu as QuantumState
 except ImportError:
@@ -95,7 +98,21 @@ class CircuitEnv():
         self.current_len = 0
         self.current_cost = 0
         self.current_degree = 0
-        
+
+        # these are the stabilizers for the d=3 surface code 
+        self.original_stabilizers = [
+                stim.PauliString("+XX_XX____"),
+                stim.PauliString("+____XX_XX"),
+                stim.PauliString("+_XX______"),
+                stim.PauliString("+______XX_"),
+                stim.PauliString("+Z__Z_____"),
+                stim.PauliString("+_____Z__Z"),
+                stim.PauliString("+_ZZ_ZZ___"),
+                stim.PauliString("+___ZZ_ZZ_")
+        ]
+
+        self.original_sorted_stabilizers = sorted([str(ps) for ps in self.original_stabilizers])
+
         if self.fn_type in ['F0_energy_depth_up']:
             self.kickstart_depth = conf['env']['kickstart_depth']
 
@@ -105,7 +122,7 @@ class CircuitEnv():
             self.H_WEIGHT = float(conf['env']['h_weight'])
 
         stdout.flush()
-        self.state_size = self.num_layers*self.num_qubits*(self.num_qubits+3+3)
+        self.state_size = self.num_layers*self.num_qubits*(self.num_qubits+1)
         self.step_counter = -1
         self.prev_energy = None
         self.moments = [0]*self.num_qubits
@@ -113,11 +130,9 @@ class CircuitEnv():
         self.energy = 0
         self.opt_alg_save = 0
 
-        self.action_size = (self.num_qubits*(self.num_qubits+2))
+        self.action_size = (self.num_qubits*(self.num_qubits))
         self.previous_action = [0, 0, 0, 0]
  
-
-
         if 'non_local_opt' in conf.keys():
             self.global_iters = conf['non_local_opt']['global_iters']
             self.optim_method = conf['non_local_opt']["method"]
@@ -147,10 +162,6 @@ class CircuitEnv():
             self.global_iters = 0
             self.optim_method = None
         
-
-
-
-
     def step(self, action, train_flag = True) :
         
         """
@@ -159,7 +170,6 @@ class CircuitEnv():
         
         Variable 'step_counter' points last non-empty layer.
         """  
-        
         next_state = self.state.clone()
         
         self.step_counter += 1
@@ -173,9 +183,7 @@ class CircuitEnv():
         
         ctrl = action[0]
         targ = (action[0] + action[1]) % self.num_qubits
-        rot_qubit = action[2]
-        rot_axis = action[3]
-        
+        rot_qubit = action[2]        
         
         self.action = action
 
@@ -187,7 +195,7 @@ class CircuitEnv():
         if ctrl < self.num_qubits:
             next_state[gate_tensor][targ][ctrl] = 1
         elif rot_qubit < self.num_qubits:
-            next_state[gate_tensor][self.num_qubits+rot_axis-1][rot_qubit] = 1
+            next_state[gate_tensor][self.num_qubits][rot_qubit] = 1
 
         if rot_qubit < self.num_qubits:
             self.moments[ rot_qubit ] += 1
@@ -200,30 +208,8 @@ class CircuitEnv():
         self.current_action = action
         self.illegal_action_new()
 
-        if self.optim_method in ["scipy_each_step"]:
-            thetas, nfev, opt_ang = self.scipy_optim(self.optim_alg)
-            for i in range(self.num_layers):
-                for j in range(3):
-                    next_state[i][self.num_qubits+3+j,:] = thetas[i][j,:]
-        
-        self.nfev = nfev
-        
-
-        if self.optim_method in ["SPSA3"]:
-            thetas, nfev, opt_ang = self.adam_spsa_3()
-            for i in range(self.num_layers):
-                for j in range(3):
-                    next_state[i][self.num_qubits+3+j,:] = thetas[i][j,:]
-
-        if self.optim_method in ["SPSA"]:
-            thetas, nfev, opt_ang = self.adam_spsa_1()
-            for i in range(self.num_layers):
-                for j in range(3):
-                    next_state[i][self.num_qubits+3+j,:] = thetas[i][j,:]
-            
-
         self.state = next_state.clone()
-        
+
         energy,energy_noiseless = self.get_energy()
 
         if self.noise_flag == False:
@@ -237,54 +223,42 @@ class CircuitEnv():
         self.error = float(abs(self.min_eig-energy))
         self.error_noiseless = float(abs(self.min_eig-energy_noiseless))
         
-        # print(self.error_noiseless)
-
         circuit = self.make_circuit()
         total_gate_count = circuit.get_gate_count()
         
-        # total_gate_count = circuit.get_gate_count()
         param_count = 0
         # create cirq quantum circuit
         cirq_circuit = cirq.Circuit()
         cirq_qubits = [cirq.NamedQubit(str(q)) for q in range(self.num_qubits)]
 
         for i in range(total_gate_count):
-            # print('hello')
             the_gate = circuit.get_gate(i)
             name_of_gate = the_gate.get_name()
 
             if name_of_gate != 'CNOT':
                 # get the single gate qubit
                 cirq_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
-                # get gate parameter
-                the_parameter = circuit.get_parameter(param_count)
-                if name_of_gate == 'ParametricRX':
-                    cirq_circuit.append(cirq.rx(rads=the_parameter).on(cirq_qubit))
-                elif name_of_gate == 'ParametricRY':
-                    cirq_circuit.append(cirq.ry(rads=the_parameter).on(cirq_qubit))
-                elif name_of_gate == 'ParametricRZ':
-                    cirq_circuit.append(cirq.rz(rads=the_parameter).on(cirq_qubit))
-                    param_count += 1
+                cirq_circuit.append(cirq.H.on(cirq_qubit))
             else:
                 the_parameter = 0
                 ctrl_qubit = cirq_qubits[the_gate.get_control_index_list()[0]]
                 tgt_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
                 cirq_circuit.append(cirq.CNOT(ctrl_qubit, tgt_qubit))
-        # print(cirq_circuit)
+
         self.current_circuit = cirq_circuit        
 
-        # exit()
-        # print(the_operations_in_circuit
-
-        # print(self.current_cost)
-
-        if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up']:
+        if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up', 'F0_hamming']:
             self.current_len = self._len_move_to_left()
             self.current_gate_count = self._get_gate_count()
             self.current_cost = self._get_average_cost()
             self.current_degree = self._get_average_degree()
-
-        rwd = self.reward_fn(energy)
+        
+        if self.fn_type == 'F0_hamming':
+            hamming_distance = self.get_hamming()
+            rwd = self.reward_fn(hamming_distance)
+        else:
+            rwd = self.reward_fn(energy)
+            
         self.rwd = rwd
 
         if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up']:
@@ -327,7 +301,7 @@ class CircuitEnv():
             append it in circuit creator)
         """
         
-        state = torch.zeros((self.num_layers, self.num_qubits+3+3, self.num_qubits))
+        state = torch.zeros((self.num_layers, self.num_qubits+1, self.num_qubits))
         self.state = state
         
         
@@ -371,8 +345,6 @@ class CircuitEnv():
         CNOT gate have priority over rotations when both will be present in the given slot
         """
         state = self.state.clone()
-        if thetas is None:
-            thetas = state[:, self.num_qubits+3:]
         
         circuit = ParametricQuantumCircuit(self.num_qubits)
         
@@ -386,7 +358,7 @@ class CircuitEnv():
                 for r in range(len(ctrl)):
                     circuit.add_gate(CNOT(ctrl[r], targ[r]))
                     
-            rot_pos = np.where(state[i][self.num_qubits: self.num_qubits+3] == 1)
+            rot_pos = np.where(state[i][self.num_qubits: self.num_qubits+1] == 1)
             
             rot_direction_list, rot_qubit_list = rot_pos[0], rot_pos[1]
             
@@ -394,16 +366,10 @@ class CircuitEnv():
                 for pos, r in enumerate(rot_direction_list):
                     rot_qubit = rot_qubit_list[pos]
                     if r == 0:
-                        circuit.add_parametric_RX_gate(rot_qubit, thetas[i][0][rot_qubit]) 
-                    elif r == 1:
-                        circuit.add_parametric_RY_gate(rot_qubit, thetas[i][1][rot_qubit])
-                    elif r == 2:
-                        circuit.add_parametric_RZ_gate(rot_qubit, thetas[i][2][rot_qubit])
+                        circuit.add_H_gate(rot_qubit)
                     else:
-                        print(f'rot-axis = {r} is in invalid')
-                        
+                        print(f'rot-axis = {r} is in invalid')                        
                         assert r >2
-        
         return circuit
 
     def R_gate(self, qubit, axis, angle):
@@ -417,9 +383,24 @@ class CircuitEnv():
             print("Wrong gate")
             return 1
 
+    
+    def get_hamming_distance(self, current_stabilizers: list[str]) -> int:
+        """
+        Computes the Hamming distance between the original stabilizers of the surface code 
+        and the stabilizers of the current circuit.
+        """
 
-    def get_energy(self, thetas=None):
-        
+        unsorted = []
+        for s in current_stabilizers:
+            unsorted.append(str(s))
+
+        current_sorted_stabilizers = sorted(unsorted)
+
+        return sum([int((np.array(list(x)) != np.array(list(y))).sum()) 
+            for x, y in zip(self.original_sorted_stabilizers, current_sorted_stabilizers)])
+
+
+    def get_energy_old(self, thetas=None):
         circ = self.make_circuit(thetas)
         qulacs_inst = vc.Parametric_Circuit(n_qubits = self.num_qubits, noise_models = self.noise_models, noise_values = self.noise_values)
         noisy_circ = qulacs_inst.construct_ansatz(self.state)
@@ -429,8 +410,40 @@ class CircuitEnv():
         energy = expval_noisy + shot_noise + self.energy_shift
         energy_noiseless = expval_noiseless  + self.energy_shift
         return energy, energy_noiseless
+
     
+    def qulacs_to_stim(qulacs_circuit: QuantumCircuit) -> stim.Circuit:
+        stim_circuit = stim.Circuit()
         
+        for gate in qulacs_circuit.gate_list:
+            name = gate.get_name()
+            targets = gate.get_target_index_list()
+
+            if name == "H":
+                stim_circuit.append_operation("H", [targets[0]])
+            elif name == "CNOT":
+                stim_circuit.append_operation("CX", [targets[0], targets[1]])
+            else:
+                raise ValueError(f"Unsupported gate {name} in circuit. Only H and CNOT are allowed.")
+
+        return stim_circuit
+    
+
+    def get_hamming(self, thetas=None):
+        circ = self.make_circuit(thetas)
+        qulacs_inst = vc.Parametric_Circuit(n_qubits = self.num_qubits, noise_models = self.noise_models, noise_values = self.noise_values)
+        noisy_circ = qulacs_inst.construct_ansatz(self.state)
+
+        stim_circuit = qulacs_to_stim(qulacs_circuit=noisy_circ)
+        tableau = stim.Tableau.from_circuit(stim_circuit)
+        current_stabilizers = tableau.to_stabilizers()
+
+        hamming_distance = self.get_hamming_distance(current_stabilizers)
+
+        print(hamming_distance)
+
+        return hamming_distance
+
     def scipy_optim(self, method, which_angles = [] ):
         state = self.state.clone()
         thetas = state[:, self.num_qubits+3:]
@@ -516,7 +529,7 @@ class CircuitEnv():
         hs: int = 0
         for moment in self.current_circuit:
             for op in moment:
-                if op.gate == cirq.CNOT: #or transformers.is_cnot_with_multiple_targets(op):
+                if op.gate == cirq.CNOT:
                     cnots += 1
                 else:
                     hs += 1
@@ -544,7 +557,7 @@ class CircuitEnv():
 
             for moment in self.current_circuit:
                 for op in moment:
-                    if op.gate == cirq.CNOT: #or transformers.is_cnot_with_multiple_targets(op):
+                    if op.gate == cirq.CNOT: 
                         indices = [qubit_dict[q] for q in op.qubits]
                         degrees[indices] += 1
 
@@ -578,6 +591,9 @@ class CircuitEnv():
         elif self.fn_type == 'F0_energy_untweaked':
             return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost),
                     (self.energy/self.min_eig))
+        
+        elif self.fn_type == 'F0_hamming':
+            return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost), (1 / energy))
 
         elif self.fn_type == 'F0_energy_depth_up':
             return pow((self.energy / self.min_eig) + (self.max_cost / self.current_cost),
@@ -903,7 +919,7 @@ class CircuitEnv():
                 illegal_action[indx+1] = []
         
         illegal_action_decode = []
-        for key, contain in dictionary_of_actions(self.num_qubits).items():
+        for key, contain in dictionary_of_clifford_actions(self.num_qubits).items():
             for ill_action in illegal_action:
                 if ill_action == contain:
                     illegal_action_decode.append(key)
