@@ -1,5 +1,3 @@
-
-
 import torch
 import stim
 from qulacs.gate import CNOT, RX, RY, RZ
@@ -30,7 +28,7 @@ class CircuitEnv():
         self.num_qubits = conf['env']['num_qubits']
         self.num_layers = conf['env']['num_layers']
 
-        self.random_halt = int(conf['env']['rand_halt'])
+        # self.random_halt = int(conf['env']['rand_halt'])
         
         self.n_shots =   conf['env']['n_shots'] 
         # noise_models = ['depolarizing', 'two_depolarizing', 'amplitude_damping']
@@ -66,10 +64,10 @@ class CircuitEnv():
             self.cnot_rwd_weight = 1.
         
         # self.noise_flag = True
-        self.state_with_angles = conf['agent']['angles']
+        # self.state_with_angles = conf['agent']['angles']
         self.current_number_of_cnots = 0
         
-        self.curriculum_dict = {}
+        # self.curriculum_dict = {}
 
         # __ham = np.load(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
         # print(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
@@ -84,11 +82,11 @@ class CircuitEnv():
         # self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
         # self.max_eig = max(eigvals)+self.energy_shift
 
-        self.curriculum_dict[self.geometry[-3:]] = curricula.__dict__[conf['env']['curriculum_type']](conf['env'], target_energy=min_eig)
+        # self.curriculum_dict[self.geometry[-3:]] = curricula.__dict__[conf['env']['curriculum_type']](conf['env'], target_energy=min_eig)
      
         self.device = device
         self.ket = QuantumState(self.num_qubits)
-        self.done_threshold = conf['env']['accept_err']
+        # self.done_threshold = conf['env']['accept_err']
         self.max_len = self.num_layers
         
         self.max_cost = 0
@@ -128,7 +126,6 @@ class CircuitEnv():
         self.moments = [0]*self.num_qubits
         self.illegal_actions = [[]]*self.num_qubits
         # self.energy = 0
-        self.opt_alg_save = 0
 
         self.action_size = (self.num_qubits*(self.num_qubits))
         self.previous_action = [0, 0, 0, 0]
@@ -161,6 +158,28 @@ class CircuitEnv():
         # else:
         #     self.global_iters = 0
         #     self.optim_method = None
+    
+    def get_cirq_circuit(self)
+        circuit = self.make_circuit()
+        total_gate_count = circuit.get_gate_count()
+        
+        # create cirq quantum circuit
+        cirq_circuit = cirq.Circuit()
+        cirq_qubits = [cirq.NamedQubit(str(q)) for q in range(self.num_qubits)]
+
+        for i in range(total_gate_count):
+            the_gate = circuit.get_gate(i)
+            name_of_gate = the_gate.get_name()
+
+            if name_of_gate != 'CNOT':
+                cirq_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
+                cirq_circuit.append(cirq.H.on(cirq_qubit))
+            else:
+                ctrl_qubit = cirq_qubits[the_gate.get_control_index_list()[0]]
+                tgt_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
+                cirq_circuit.append(cirq.CNOT(ctrl_qubit, tgt_qubit))
+
+        return cirq_circuit
         
     def step(self, action, train_flag = True) :
         
@@ -204,7 +223,6 @@ class CircuitEnv():
             self.moments[ctrl] = max_of_two_moments +1
             self.moments[targ] = max_of_two_moments +1
             
-        
         self.current_action = action
         self.illegal_action_new()
 
@@ -212,35 +230,7 @@ class CircuitEnv():
 
         self.hamming_distance = self.get_hamming()
 
-        # if energy < self.curriculum.lowest_energy and train_flag:
-        #     self.curriculum.lowest_energy = copy.copy(energy)
-    
-        # self.error = float(abs(self.min_eig-energy))
-        # self.error_noiseless = float(abs(self.min_eig-energy_noiseless))
-        
-        circuit = self.make_circuit()
-        total_gate_count = circuit.get_gate_count()
-        
-        param_count = 0
-        # create cirq quantum circuit
-        cirq_circuit = cirq.Circuit()
-        cirq_qubits = [cirq.NamedQubit(str(q)) for q in range(self.num_qubits)]
-
-        for i in range(total_gate_count):
-            the_gate = circuit.get_gate(i)
-            name_of_gate = the_gate.get_name()
-
-            if name_of_gate != 'CNOT':
-                # get the single gate qubit
-                cirq_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
-                cirq_circuit.append(cirq.H.on(cirq_qubit))
-            else:
-                the_parameter = 0
-                ctrl_qubit = cirq_qubits[the_gate.get_control_index_list()[0]]
-                tgt_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
-                cirq_circuit.append(cirq.CNOT(ctrl_qubit, tgt_qubit))
-
-        self.current_circuit = cirq_circuit        
+        self.current_circuit = self.get_cirq_circuit()        
 
         if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up', 'F0_hamming']:
             self.current_len = self._len_move_to_left()
@@ -259,27 +249,30 @@ class CircuitEnv():
         # self.prev_energy = np.copy(energy)
         self.prev_hamming = np.copy(hamming_distance)
 
-        energy_done = int(self.error < self.done_threshold)
-
+        # TODO Akash what do we do about this?
+        # energy_done = int(self.error < self.done_threshold)
+-
         layers_done = self.step_counter == (self.num_layers - 1)
-        done = int(energy_done or layers_done)
-        
+
+        # TODO Akash what do we do about this?
+        # done = int(energy_done or layers_done)
+        done = int(layers_done)
+
         self.previous_action = copy.deepcopy(action)
 
-        # TODO what should be changed here?
-        if self.random_halt:
-            if self.step_counter == self.halting_step:
-                done = 1
-        if done:
-            self.curriculum.update_threshold(energy_done=energy_done)
-            self.done_threshold = self.curriculum.get_current_threshold()
-            self.curriculum_dict[str(self.current_bond_distance)] = copy.deepcopy(self.curriculum)
+        # if self.random_halt:
+        #     if self.step_counter == self.halting_step:
+        #         done = 1
+        # if done:
+        #     self.curriculum.update_threshold(energy_done=energy_done)
+        #     self.done_threshold = self.curriculum.get_current_threshold()
+        #     self.curriculum_dict[str(self.current_bond_distance)] = copy.deepcopy(self.curriculum)
         
-        if self.state_with_angles:
-            return next_state.view(-1).to(self.device), torch.tensor(rwd, dtype=torch.float32, device=self.device), done
-        else:
-            next_state = next_state[:, :self.num_qubits+3]
-            return next_state.reshape(-1).to(self.device), torch.tensor(rwd, dtype=torch.float32, device=self.device), done
+        # if self.state_with_angles:
+        #     return next_state.view(-1).to(self.device), torch.tensor(rwd, dtype=torch.float32, device=self.device), done
+        # else:
+        next_state = next_state[:, :self.num_qubits+1]
+        return next_state.reshape(-1).to(self.device), torch.tensor(rwd, dtype=torch.float32, device=self.device), done
 
     def reset(self):
         """
@@ -296,10 +289,9 @@ class CircuitEnv():
         state = torch.zeros((self.num_layers, self.num_qubits+1, self.num_qubits))
         self.state = state
         
-        if self.random_halt:
-            statistics_generated = np.clip(np.random.negative_binomial(n=70,p=0.573, size=1),25,70)[0]
-            self.halting_step = statistics_generated
-
+        # if self.random_halt:
+        #     statistics_generated = np.clip(np.random.negative_binomial(n=70,p=0.573, size=1),25,70)[0]
+        #     self.halting_step = statistics_generated
         
         self.current_number_of_cnots = 0
         self.current_action = [self.num_qubits]*4
@@ -307,27 +299,16 @@ class CircuitEnv():
 
         self.make_circuit(state)
         self.step_counter = -1
-
         
         self.moments = [0]*self.num_qubits
         # self.current_bond_distance = self.geometry[-3:]
-        self.curriculum = copy.deepcopy(self.curriculum_dict[str(self.current_bond_distance)])
-        self.done_threshold = copy.deepcopy(self.curriculum.get_current_threshold())
-        # self.geometry = self.geometry[:-3] + str(self.current_bond_distance)
-        # __ham = np.load(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
-        # self.hamiltonian, self.weights,eigvals, self.energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
-        # self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
-        # self.max_eig = max(eigvals)+self.energy_shift
-        # self.prev_energy = self.get_energy(state)[1]
+        # self.curriculum = copy.deepcopy(self.curriculum_dict[str(self.current_bond_distance)])
+        # self.done_threshold = copy.deepcopy(self.curriculum.get_current_threshold())
 
         self.prev_hamming = self.get_hamming(state)
-        # self.prev_energy = self.prev_hamming
 
-        if self.state_with_angles:
-            return state.reshape(-1).to(self.device)
-        else:
-            state = state[:, :self.num_qubits+3]
-            return state.reshape(-1).to(self.device)
+        state = state[:, :self.num_qubits+1]
+        return state.reshape(-1).to(self.device)
 
     def make_circuit(self, thetas=None):
         """
@@ -364,25 +345,12 @@ class CircuitEnv():
                         print(f'rot-axis = {r} is in invalid')                        
                         assert r >2
         return circuit
-
-    # def R_gate(self, qubit, axis, angle):
-    #     if axis == 'X' or axis == 'x' or axis == 1:
-    #         return RX(qubit, angle)
-    #     elif axis == 'Y' or axis == 'y' or axis == 2:
-    #         return RY(qubit, angle)
-    #     elif axis == 'Z' or axis == 'z' or axis == 3:
-    #         return RZ(qubit, angle)
-    #     else:
-    #         print("Wrong gate")
-    #         return 1
-
     
     def get_hamming_distance(self, current_stabilizers: list[str]) -> int:
         """
         Computes the Hamming distance between the original stabilizers of the surface code 
         and the stabilizers of the current circuit.
         """
-
         unsorted = []
         for s in current_stabilizers:
             unsorted.append(str(s))
@@ -400,18 +368,6 @@ class CircuitEnv():
         return sum([int((np.array(list(x)) != np.array(list(y))).sum()) 
             for x, y in zip(self.original_sorted_stabilizers, current_sorted_stabilizers)])
 
-
-    # def get_energy_old(self, thetas=None):
-    #     circ = self.make_circuit(thetas)
-    #     qulacs_inst = vc.Parametric_Circuit(n_qubits = self.num_qubits, noise_models = self.noise_models, noise_values = self.noise_values)
-    #     noisy_circ = qulacs_inst.construct_ansatz(self.state)
-    #     expval_noisy = vc.get_exp_val(self.num_qubits,noisy_circ,self.hamiltonian,self.phys_noise,self.err_mitig)
-    #     expval_noiseless = vc.get_exp_val(self.num_qubits,circ,self.hamiltonian)
-    #     shot_noise = vc.get_shot_noise(self.weights, self.n_shots)          
-    #     energy = expval_noisy + shot_noise + self.energy_shift
-    #     energy_noiseless = expval_noiseless  + self.energy_shift
-    #     return energy, energy_noiseless
-
     
     def qulacs_to_stim(self, qulacs_circuit) -> stim.Circuit:
         stim_circuit = stim.Circuit()
@@ -422,7 +378,6 @@ class CircuitEnv():
             name_of_gate = the_gate.get_name()
 
             if name_of_gate != 'CNOT':
-                # get the single gate qubit
                 stim_circuit.append_operation("H", [the_gate.get_target_index_list()[0]])
             else:
                 stim_circuit.append_operation("CX", [the_gate.get_control_index_list()[0], 
@@ -432,7 +387,7 @@ class CircuitEnv():
 
     def get_hamming(self, thetas=None):
         circ = self.make_circuit(thetas)
-        qulacs_inst = vc.Parametric_Circuit(n_qubits = self.num_qubits, noise_models = self.noise_models, noise_values = self.noise_values)
+        qulacs_inst = vc.Parametric_Circuit(n_qubits = self.num_qubits)
         noisy_circ = qulacs_inst.construct_ansatz(self.state)
 
         stim_circuit = self.qulacs_to_stim(qulacs_circuit=noisy_circ)
@@ -444,81 +399,6 @@ class CircuitEnv():
         print(hamming_distance)
 
         return hamming_distance
-
-    # def scipy_optim(self, method, which_angles = [] ):
-    #     state = self.state.clone()
-    #     thetas = state[:, self.num_qubits+3:]
-    #     rot_pos = (state[:,self.num_qubits: self.num_qubits+3] == 1).nonzero( as_tuple = True )
-    #     angles = thetas[rot_pos]
-
-    #     qulacs_inst = vc.Parametric_Circuit(n_qubits=self.num_qubits,noise_models=self.noise_models,noise_values = self.noise_values)
-    #     qulacs_circuit = qulacs_inst.construct_ansatz(state)
-        
-    #     x0 = np.asarray(angles.cpu().detach())
-
-    #     def cost(x):
-    #         return vc.get_energy_qulacs(x, observable = self.hamiltonian,
-    #         weights = self.weights, circuit = qulacs_circuit,
-    #         n_qubits = self.num_qubits, energy_shift = self.energy_shift,
-    #         n_shots = int(self.n_shots), phys_noise = self.phys_noise,
-    #                   which_angles=[])
-
-    #     if list(which_angles):
-    #         result_min_qulacs = scipy.optimize.minimize(cost, x0 = x0[which_angles], method = method, options = {'maxiter':self.global_iters})
-    #         x0[which_angles] = result_min_qulacs['x']
-    #         thetas = state[:, self.num_qubits+3:]
-    #         thetas[rot_pos] = torch.tensor(x0, dtype=torch.float)
-    #     else:
-    #         result_min_qulacs = scipy.optimize.minimize(cost, x0 = x0, method = method, options = {'maxiter':self.global_iters})
-    #         thetas = state[:, self.num_qubits+3:]
-    #         thetas[rot_pos] = torch.tensor(result_min_qulacs['x'], dtype=torch.float)
-
-    #     return thetas, result_min_qulacs['nfev'], result_min_qulacs['x']
-
-
-    # def scipy_optim_(self, method, which_angles=[]):
-    #     state = self.state.clone()
-    #     thetas = state[:, self.num_qubits+3:]
-    #     rot_pos = (state[:,self.num_qubits: self.num_qubits+3] == 1).nonzero( as_tuple = True )
-    #     angles = thetas[rot_pos]
-
-    #     qulacs_inst = vc.Parametric_Circuit(n_qubits=self.num_qubits)
-    #     qulacs_circuit = qulacs_inst.construct_ansatz(state)
-    #     x0 = np.asarray(angles.cpu().detach())
-
-    #     if list(which_angles):
-    #         result_min_qulacs = scipy.optimize.minimize(vc.get_energy_qulacs, x0=x0[which_angles],
-    #                                                         args=(  self.hamiltonian,
-    #                                                                 self.weights,
-    #                                                                 qulacs_circuit, 
-    #                                                                 self.num_qubits, 
-    #                                                                 self.energy_shift, 
-    #                                                                 int(self.n_shots/100),
-    #                                                                 self.noise_value,
-    #                                                                 self.M,
-    #                                                                 which_angles),
-    #                                                         method=method,
-    #                                                         options={'maxiter':self.global_iters})
-    #         x0[which_angles] = result_min_qulacs['x']
-    #         thetas = state[:, self.num_qubits+3:]
-    #         thetas[rot_pos] = torch.tensor(x0, dtype=torch.float)
-    #     else:
-    #         result_min_qulacs = scipy.optimize.minimize(vc.get_energy_qulacs, x0=x0,
-    #                                                     args=(  self.hamiltonian,
-    #                                                             self.weights,
-    #                                                             qulacs_circuit, 
-    #                                                             self.num_qubits, 
-    #                                                             self.energy_shift, 
-    #                                                             int(self.n_shots/100),
-    #                                                             self.noise_value,
-    #                                                             self.M,
-    #                                                             which_angles),
-    #                                                     method=method,
-    #                                                     options={'maxiter':self.global_iters})
-            
-    #         thetas = state[:, self.num_qubits+3:]
-    #         thetas[rot_pos] = torch.tensor(result_min_qulacs['x'], dtype=torch.float)
-    #     return thetas, result_min_qulacs['x']
     
     def _get_average_cost(self) -> float:
         """
@@ -576,228 +456,12 @@ class CircuitEnv():
         This returns the reward value that the agent receives based on the current circuit
         and the initial values that the circuit had.
         """
-        if self.fn_type == 'F0':
-            return pow((self.max_degree / self.current_degree) + (self.max_cost / self.current_cost),
-                    (self.max_len / self.current_len))
-
-        elif self.fn_type == 'F1':
-            return pow((self.max_degree / self.current_degree) + (self.max_cost / self.current_cost),
-                    (self.max_len / self.current_len)) - self.prev_reward
-
-        elif self.fn_type == 'F3':
-            current_total = self.current_cost + self.current_degree + self.current_len
-            min_total = self.min_cost + self.min_degree + self.min_len
-            return max(0, min_total - current_total)
-        
-        elif self.fn_type == 'F0_energy_untweaked':
+        if self.fn_type == 'F0_energy_untweaked':
             return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost),
                     (self.energy/self.min_eig))
         
         elif self.fn_type == 'F0_hamming':
             return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost), (1 / energy))
-
-        elif self.fn_type == 'F0_energy_depth_up':
-            return pow((self.energy / self.min_eig) + (self.max_cost / self.current_cost),
-                    (self.max_len / (self.current_len + self.kickstart_depth)))
-
-        elif self.fn_type == 'F0_energy_tweaked':
-            if (self.error < self.done_threshold):
-                rwd = 400
-            else:
-                rwd =  pow((self.max_len/ (self.current_len+1)) + (self.max_cost / self.current_cost),
-                        (self.energy/self.min_eig))
-            return rwd
-        
-        elif self.fn_type == "staircase":
-            return (0.2 * (self.error < 15 * self.done_threshold) +
-                    0.4 * (self.error < 10 * self.done_threshold) +
-                    0.6 * (self.error < 5 * self.done_threshold) +
-                    1.0 * (self.error < self.done_threshold)) / 2.2
-        elif self.fn_type == "two_step":
-            return (0.001 * (self.error < 5 * self.done_threshold) +
-                    1.0 * (self.error < self.done_threshold))/1.001
-        elif self.fn_type == "two_step_end":
-
-            max_depth = self.step_counter == (self.num_layers - 1)
-            if ((self.error < self.done_threshold) or max_depth):
-                return (0.001 * (self.error < 5 * self.done_threshold) +
-                    1.0 * (self.error < self.done_threshold))/1.001
-            else:
-                return 0.0
-        elif self.fn_type == "naive":
-            return 0. + 1.*(self.error < self.done_threshold)
-        elif self.fn_type == "incremental":
-            return (self.prev_energy - energy)/abs(self.prev_energy - self.min_eig)
-        elif self.fn_type == "incremental_clipped":
-            return np.clip((self.prev_energy - energy)/abs(self.prev_energy - self.min_eig),-1,1)
-        elif self.fn_type == "nive_fives":
-
-            max_depth = self.step_counter == (self.num_layers - 1)
-            if (self.error < self.done_threshold):
-                rwd = 5.
-            elif max_depth:
-                rwd = -5.
-            else:
-                rwd = 0.
-            return rwd
-        
-        elif self.fn_type == "incremental_with_fixed_ends":
-            max_depth = self.step_counter == (self.num_layers - 1)
-            if (self.error < self.done_threshold):
-                rwd = 5.
-            elif max_depth:
-                rwd = -5.
-            else:
-                rwd = np.clip((self.prev_energy - energy)/abs(self.prev_energy - self.min_eig),-1,1)
-            return rwd
-        
-        elif self.fn_type == "log":
-            return -np.log(1-(energy/self.min_eig))
-        
-        elif self.fn_type == "log_to_ground":
-            
-            return -np.log(self.error)
-        
-        elif self.fn_type == "log_to_threshold":
-            if self.error < self.done_threshold + 1e-5:
-                rwd = 11
-            else:
-                rwd = -np.log(abs(self.error - self.done_threshold))
-            return rwd
-        
-        elif self.fn_type == "log_to_threshold_0_end":
-            rwd = -np.log(abs(self.error - self.done_threshold))
-            return rwd
-        
-        elif self.fn_type == "log_to_threshold_50_end":
-            if self.error < self.done_threshold + 1e-5:
-                rwd = 50
-            else:
-                rwd = -np.log(abs(self.error - self.done_threshold))
-            return rwd
-        
-        elif self.fn_type == "log_to_threshold_100_end":
-            if self.error < self.done_threshold + 1e-5:
-                rwd = 100
-            else:
-                rwd = -np.log(abs(self.error - self.done_threshold))
-            return rwd
-        
-        elif self.fn_type == "log_to_threshold_500_end":
-            if self.error < self.done_threshold + 1e-5:
-                rwd = 100
-            else:
-                rwd = -np.log(abs(self.error - self.done_threshold))
-            return rwd
-	
-        elif self.fn_type == "log_to_threshold_500_end":
-                if self.error < self.done_threshold + 1e-5:
-                    rwd = 500
-                else:
-                    rwd = -np.log(abs(self.error - self.done_threshold))
-                return rwd
-        
-        elif self.fn_type == "log_to_threshold_1000_end":
-            if self.error < self.done_threshold + 1e-5:
-                rwd = 1000
-            else:
-                rwd = -np.log(abs(self.error - self.done_threshold))
-            return rwd
-        
-        elif self.fn_type == "log_to_threshold_bigger_end_non_repeat_energy":
-            if self.error < self.done_threshold + 1e-5:
-                rwd = 30
-            elif np.abs(self.energy-self.prev_energy) <= 1e-3:
-                rwd = -30
-            else:
-                rwd = -np.log(abs(self.error - self.done_threshold))
-            return rwd
-        
-        elif self.fn_type == "log_to_threshold_bigger_end_no_repeat_actions":
-            if self.current_action == self.previous_action:
-                return -1 
-            elif self.error < self.done_threshold + 1e-5:
-                rwd = 20
-            else:
-                rwd = -np.log(abs(self.error - self.done_threshold))
-            return rwd
-        
-        elif self.fn_type == "log_neg_punish":
-            return -np.log(1-(energy/self.min_eig)) - 5
-        
-        elif self.fn_type == "end_energy":
-
-            max_depth = self.step_counter == (self.num_layers - 1)
-            
-            if ((self.error < self.done_threshold) or max_depth):
-                rwd = (self.max_eig - energy) / (abs(self.min_eig) + abs(self.max_eig))
-            else:
-                rwd = 0.0
-
-        elif self.fn_type == "hybrid_reward":
-            path = 'threshold_crossed.npy'
-            if os.path.exists(path):
-                
-                threshold_pass_info = np.load(path)
-                if threshold_pass_info > 8:
-
-                    max_depth = self.step_counter == (self.num_layers - 1)
-                    if (self.error < self.done_threshold):
-                        rwd = 5.
-                    elif max_depth:
-                        rwd = -5.
-                    else:
-                        rwd = np.clip((self.prev_energy - energy)/abs(self.prev_energy - self.min_eig),-1,1)
-                    return rwd
-                else:
-                    if self.error < self.done_threshold + 1e-5:
-                        rwd = 11
-                    else:
-                        rwd = -np.log(abs(self.error - self.done_threshold))
-                    return rwd
-            else:
-                np.save('threshold_crossed.npy', 0)
-        
-        elif self.fn_type == 'negative_above_chem_acc':
-            if self.error > self.done_threshold:
-                rwd = - (self.error/self.done_threshold)
-            elif self.error == self.done_threshold:
-                rwd = (self.error/self.done_threshold)
-            else:
-                rwd = 1000*(self.done_threshold/self.error)
-            return rwd
-        
-        elif self.fn_type == 'negative_above_chem_acc_non_increment':
-            if self.error > self.done_threshold:
-                rwd = - (self.error/self.done_threshold)
-            elif self.error == self.done_threshold:
-                rwd = (self.error/self.done_threshold)
-            else:
-                rwd = self.done_threshold/self.error
-            return rwd
-        
-        elif self.fn_type == 'negative_above_chem_acc_slight_increment':
-            if self.error > self.done_threshold:
-                rwd = - (self.error/self.done_threshold)
-            elif self.error == self.done_threshold:
-                rwd = (self.error/self.done_threshold)
-            else:
-                rwd = 100*(self.done_threshold/self.error)
-            return rwd
-
-
-        elif self.fn_type == "cnot_reduce":
-
-            max_depth = self.step_counter == (self.num_layers - 1)
-            
-            
-            if (self.error < self.done_threshold):
-                rwd = self.num_layers - self.cnot_rwd_weight*self.current_number_of_cnots
-            elif max_depth:
-                rwd = -5.
-            else:
-                rwd = np.clip((self.prev_energy - energy)/abs(self.prev_energy - self.min_eig),-1,1)
-            return 
 
         
     def illegal_action_new(self):
@@ -926,8 +590,6 @@ class CircuitEnv():
                     illegal_action_decode.append(key)
         self.illegal_actions = illegal_action
         return illegal_action_decode
-
-
 
 
 if __name__ == "__main__":
