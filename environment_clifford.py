@@ -13,7 +13,6 @@ import copy
 import cirq
 import curricula
 from collections import Counter
-from qiskit.quantum_info import state_fidelity
 
 try:
     from qulacs import QuantumStateGpu as QuantumState
@@ -54,7 +53,6 @@ class CircuitEnv():
 
         self.err_mitig = conf['env']['err_mitig']
         
-
         self.ham_mapping = conf['problem']['mapping']
         self.geometry = conf['problem']['geometry'].replace(" ", "_")
 
@@ -101,15 +99,16 @@ class CircuitEnv():
 
         # these are the stabilizers for the d=3 surface code 
         self.original_stabilizers = [
-                stim.PauliString("+XX_XX____"),
-                stim.PauliString("+____XX_XX"),
-                stim.PauliString("+_XX______"),
-                stim.PauliString("+______XX_"),
-                stim.PauliString("+Z__Z_____"),
-                stim.PauliString("+_____Z__Z"),
-                stim.PauliString("+_ZZ_ZZ___"),
-                stim.PauliString("+___ZZ_ZZ_")
-        ]
+                stim.PauliString("ZZ_______"),
+                stim.PauliString("_ZZ_ZZ___"),
+                stim.PauliString("___ZZ_ZZ_"),
+                stim.PauliString("_______ZZ"),
+                stim.PauliString("XX_XX____"),
+                stim.PauliString("__X__X___"),
+                stim.PauliString("____XX_XX"),
+                stim.PauliString("___X__X__"),
+                stim.PauliString("XXX______"),
+            ]
 
         self.original_sorted_stabilizers = sorted([str(ps) for ps in self.original_stabilizers])
 
@@ -124,7 +123,7 @@ class CircuitEnv():
         stdout.flush()
         self.state_size = self.num_layers*self.num_qubits*(self.num_qubits+1)
         self.step_counter = -1
-        self.prev_energy = None
+        self.prev_energy = 1
         self.moments = [0]*self.num_qubits
         self.illegal_actions = [[]]*self.num_qubits
         self.energy = 0
@@ -210,7 +209,11 @@ class CircuitEnv():
 
         self.state = next_state.clone()
 
-        energy,energy_noiseless = self.get_energy()
+        # energy,energy_noiseless = self.get_energy()
+        energy = 0
+        energy_noiseless = 0
+        hamming_distance = self.get_hamming()
+        self.energy = hamming_distance
 
         if self.noise_flag == False:
             energy = energy_noiseless
@@ -328,7 +331,10 @@ class CircuitEnv():
         self.hamiltonian, self.weights,eigvals, self.energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
         self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
         self.max_eig = max(eigvals)+self.energy_shift
-        self.prev_energy = self.get_energy(state)[1]
+        # self.prev_energy = self.get_energy(state)[1]
+
+        self.prev_hamming = self.get_hamming(state)
+        self.prev_energy = self.prev_hamming
 
         if self.state_with_angles:
             return state.reshape(-1).to(self.device)
@@ -396,6 +402,13 @@ class CircuitEnv():
 
         current_sorted_stabilizers = sorted(unsorted)
 
+        if len(current_stabilizers) == 0:
+            return 100
+        
+        #TODO change this
+        if len(self.original_sorted_stabilizers[0]) != len(current_sorted_stabilizers[0]):
+            return 100
+
         return sum([int((np.array(list(x)) != np.array(list(y))).sum()) 
             for x, y in zip(self.original_sorted_stabilizers, current_sorted_stabilizers)])
 
@@ -412,20 +425,20 @@ class CircuitEnv():
         return energy, energy_noiseless
 
     
-    def qulacs_to_stim(qulacs_circuit: QuantumCircuit) -> stim.Circuit:
+    def qulacs_to_stim(self, qulacs_circuit) -> stim.Circuit:
         stim_circuit = stim.Circuit()
-        
-        for gate in qulacs_circuit.gate_list:
-            name = gate.get_name()
-            targets = gate.get_target_index_list()
+        total_gate_count = qulacs_circuit.get_gate_count()
 
-            if name == "H":
-                stim_circuit.append_operation("H", [targets[0]])
-            elif name == "CNOT":
-                stim_circuit.append_operation("CX", [targets[0], targets[1]])
+        for i in range(total_gate_count):
+            the_gate = qulacs_circuit.get_gate(i)
+            name_of_gate = the_gate.get_name()
+
+            if name_of_gate != 'CNOT':
+                # get the single gate qubit
+                stim_circuit.append_operation("H", [the_gate.get_target_index_list()[0]])
             else:
-                raise ValueError(f"Unsupported gate {name} in circuit. Only H and CNOT are allowed.")
-
+                stim_circuit.append_operation("CX", [the_gate.get_control_index_list()[0], 
+                                              the_gate.get_target_index_list()[0]])
         return stim_circuit
     
 
@@ -434,7 +447,7 @@ class CircuitEnv():
         qulacs_inst = vc.Parametric_Circuit(n_qubits = self.num_qubits, noise_models = self.noise_models, noise_values = self.noise_values)
         noisy_circ = qulacs_inst.construct_ansatz(self.state)
 
-        stim_circuit = qulacs_to_stim(qulacs_circuit=noisy_circ)
+        stim_circuit = self.qulacs_to_stim(qulacs_circuit=noisy_circ)
         tableau = stim.Tableau.from_circuit(stim_circuit)
         current_stabilizers = tableau.to_stabilizers()
 
