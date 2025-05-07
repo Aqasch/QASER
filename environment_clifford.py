@@ -32,31 +32,32 @@ class CircuitEnv():
 
         self.random_halt = int(conf['env']['rand_halt'])
         
-        
         self.n_shots =   conf['env']['n_shots'] 
-        noise_models = ['depolarizing', 'two_depolarizing', 'amplitude_damping']
-        noise_values = conf['env']['noise_values'] 
+        # noise_models = ['depolarizing', 'two_depolarizing', 'amplitude_damping']
+        # noise_values = conf['env']['noise_values'] 
         
-        self.mol = conf['problem']['ham_type']
+        # self.mol = conf['problem']['ham_type']
 
-        if noise_values !=0:
-            indx = conf['env']['noise_values'].index(',')
-            self.noise_values = [float(noise_values[1:indx]), float(noise_values[indx+1:-1])]
-        else:
-            self.noise_values = []
-        self.noise_models = noise_models[0:len(self.noise_values)]
+        # if noise_values !=0:
+        #     indx = conf['env']['noise_values'].index(',')
+        #     self.noise_values = [float(noise_values[1:indx]), float(noise_values[indx+1:-1])]
+        # else:
+        #     self.noise_values = []
+
+        # self.noise_models = noise_models[0:len(self.noise_values)]
         
-        if len(self.noise_models) > 0:
-            self.phys_noise = True
-        else:
-            self.phys_noise = False
+        # if len(self.noise_models) > 0:
+        #     self.phys_noise = True
+        # else:
+        #     self.phys_noise = False
 
-        self.err_mitig = conf['env']['err_mitig']
+        # self.err_mitig = conf['env']['err_mitig']
         
-        self.ham_mapping = conf['problem']['mapping']
-        self.geometry = conf['problem']['geometry'].replace(" ", "_")
+        # self.ham_mapping = conf['problem']['mapping']
+        # self.geometry = conf['problem']['geometry'].replace(" ", "_")
 
-        self.fake_min_energy = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else None
+        # self.fake_min_energy = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else None
+        
         self.fn_type = conf['env']['fn_type']
         
         if "cnot_rwd_weight" in conf['env'].keys():
@@ -64,24 +65,24 @@ class CircuitEnv():
         else:
             self.cnot_rwd_weight = 1.
         
-        
-        self.noise_flag = True
+        # self.noise_flag = True
         self.state_with_angles = conf['agent']['angles']
         self.current_number_of_cnots = 0
         
         self.curriculum_dict = {}
-        __ham = np.load(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
-        print(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
-        
-        
-        _, _, eigvals, energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
 
-        min_eig = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else min(eigvals) + energy_shift
+        # __ham = np.load(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
+        # print(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
         
-        self.hamiltonian, self.weights, eigvals, self.energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
+        
+        # _, _, eigvals, energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
 
-        self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
-        self.max_eig = max(eigvals)+self.energy_shift
+        # min_eig = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else min(eigvals) + energy_shift
+        
+        # self.hamiltonian, self.weights, eigvals, self.energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
+
+        # self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
+        # self.max_eig = max(eigvals)+self.energy_shift
 
         self.curriculum_dict[self.geometry[-3:]] = curricula.__dict__[conf['env']['curriculum_type']](conf['env'], target_energy=min_eig)
      
@@ -120,46 +121,46 @@ class CircuitEnv():
             self.CNOT_WEIGHT = float(conf['env']['cnot_weight'])
             self.H_WEIGHT = float(conf['env']['h_weight'])
 
-        stdout.flush()
         self.state_size = self.num_layers*self.num_qubits*(self.num_qubits+1)
         self.step_counter = -1
-        self.prev_energy = 1
+        # self.prev_energy = 1
+        self.prev_hamming = 100
         self.moments = [0]*self.num_qubits
         self.illegal_actions = [[]]*self.num_qubits
-        self.energy = 0
+        # self.energy = 0
         self.opt_alg_save = 0
 
         self.action_size = (self.num_qubits*(self.num_qubits))
         self.previous_action = [0, 0, 0, 0]
  
-        if 'non_local_opt' in conf.keys():
-            self.global_iters = conf['non_local_opt']['global_iters']
-            self.optim_method = conf['non_local_opt']["method"]
-            self.optim_alg = conf['non_local_opt']['optim_alg']
+        # if 'non_local_opt' in conf.keys():
+        #     self.global_iters = conf['non_local_opt']['global_iters']
+        #     self.optim_method = conf['non_local_opt']["method"]
+        #     self.optim_alg = conf['non_local_opt']['optim_alg']
             
 
-            if 'a' in conf['non_local_opt'].keys():
-                self.options = {'a': conf['non_local_opt']["a"], 'alpha': conf['non_local_opt']["alpha"],
-                            'c': conf['non_local_opt']["c"], 'gamma': conf['non_local_opt']["gamma"],
-                            'beta_1': conf['non_local_opt']["beta_1"],
-                            'beta_2': conf['non_local_opt']["beta_2"]}
+        #     if 'a' in conf['non_local_opt'].keys():
+        #         self.options = {'a': conf['non_local_opt']["a"], 'alpha': conf['non_local_opt']["alpha"],
+        #                     'c': conf['non_local_opt']["c"], 'gamma': conf['non_local_opt']["gamma"],
+        #                     'beta_1': conf['non_local_opt']["beta_1"],
+        #                     'beta_2': conf['non_local_opt']["beta_2"]}
 
-            if 'lamda' in conf['non_local_opt'].keys():
-                self.options['lamda'] = conf['non_local_opt']["lamda"]
+        #     if 'lamda' in conf['non_local_opt'].keys():
+        #         self.options['lamda'] = conf['non_local_opt']["lamda"]
 
-            if 'maxfev' in conf['non_local_opt'].keys():
-                self.maxfev = {}
-                self.maxfev['maxfev'] = int(conf['non_local_opt']["maxfev"])
+        #     if 'maxfev' in conf['non_local_opt'].keys():
+        #         self.maxfev = {}
+        #         self.maxfev['maxfev'] = int(conf['non_local_opt']["maxfev"])
 
-            if 'maxfev1' in conf['non_local_opt'].keys():
-                self.maxfevs = {}
-                self.maxfevs['maxfev1'] = int( conf['non_local_opt']["maxfev1"] )
-                self.maxfevs['maxfev2'] = int( conf['non_local_opt']["maxfev2"] )
-                self.maxfevs['maxfev3'] = int( conf['non_local_opt']["maxfev3"] )
+        #     if 'maxfev1' in conf['non_local_opt'].keys():
+        #         self.maxfevs = {}
+        #         self.maxfevs['maxfev1'] = int( conf['non_local_opt']["maxfev1"] )
+        #         self.maxfevs['maxfev2'] = int( conf['non_local_opt']["maxfev2"] )
+        #         self.maxfevs['maxfev3'] = int( conf['non_local_opt']["maxfev3"] )
                 
-        else:
-            self.global_iters = 0
-            self.optim_method = None
+        # else:
+        #     self.global_iters = 0
+        #     self.optim_method = None
         
     def step(self, action, train_flag = True) :
         
@@ -209,22 +210,13 @@ class CircuitEnv():
 
         self.state = next_state.clone()
 
-        # energy,energy_noiseless = self.get_energy()
-        energy = 0
-        energy_noiseless = 0
-        hamming_distance = self.get_hamming()
-        self.energy = hamming_distance
+        self.hamming_distance = self.get_hamming()
 
-        if self.noise_flag == False:
-            energy = energy_noiseless
-
-        self.energy = energy
-
-        if energy < self.curriculum.lowest_energy and train_flag:
-            self.curriculum.lowest_energy = copy.copy(energy)
+        # if energy < self.curriculum.lowest_energy and train_flag:
+        #     self.curriculum.lowest_energy = copy.copy(energy)
     
-        self.error = float(abs(self.min_eig-energy))
-        self.error_noiseless = float(abs(self.min_eig-energy_noiseless))
+        # self.error = float(abs(self.min_eig-energy))
+        # self.error_noiseless = float(abs(self.min_eig-energy_noiseless))
         
         circuit = self.make_circuit()
         total_gate_count = circuit.get_gate_count()
@@ -256,19 +248,16 @@ class CircuitEnv():
             self.current_cost = self._get_average_cost()
             self.current_degree = self._get_average_degree()
         
-        if self.fn_type == 'F0_hamming':
-            hamming_distance = self.get_hamming()
-            rwd = self.reward_fn(hamming_distance)
-        else:
-            rwd = self.reward_fn(energy)
-            
+        hamming_distance = self.get_hamming()
+        rwd = self.reward_fn(hamming_distance)
         self.rwd = rwd
 
-        if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up']:
+        if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up', 'F0_hamming']:
             self.max_len = max(self.max_len, self.current_len)
             self.max_cost = max(self.max_cost, self.current_cost)
 
-        self.prev_energy = np.copy(energy)
+        # self.prev_energy = np.copy(energy)
+        self.prev_hamming = np.copy(hamming_distance)
 
         energy_done = int(self.error < self.done_threshold)
 
@@ -276,8 +265,8 @@ class CircuitEnv():
         done = int(energy_done or layers_done)
         
         self.previous_action = copy.deepcopy(action)
-        
 
+        # TODO what should be changed here?
         if self.random_halt:
             if self.step_counter == self.halting_step:
                 done = 1
@@ -307,10 +296,8 @@ class CircuitEnv():
         state = torch.zeros((self.num_layers, self.num_qubits+1, self.num_qubits))
         self.state = state
         
-        
         if self.random_halt:
             statistics_generated = np.clip(np.random.negative_binomial(n=70,p=0.573, size=1),25,70)[0]
-            
             self.halting_step = statistics_generated
 
         
@@ -323,18 +310,18 @@ class CircuitEnv():
 
         
         self.moments = [0]*self.num_qubits
-        self.current_bond_distance = self.geometry[-3:]
+        # self.current_bond_distance = self.geometry[-3:]
         self.curriculum = copy.deepcopy(self.curriculum_dict[str(self.current_bond_distance)])
         self.done_threshold = copy.deepcopy(self.curriculum.get_current_threshold())
-        self.geometry = self.geometry[:-3] + str(self.current_bond_distance)
-        __ham = np.load(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
-        self.hamiltonian, self.weights,eigvals, self.energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
-        self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
-        self.max_eig = max(eigvals)+self.energy_shift
+        # self.geometry = self.geometry[:-3] + str(self.current_bond_distance)
+        # __ham = np.load(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
+        # self.hamiltonian, self.weights,eigvals, self.energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
+        # self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
+        # self.max_eig = max(eigvals)+self.energy_shift
         # self.prev_energy = self.get_energy(state)[1]
 
         self.prev_hamming = self.get_hamming(state)
-        self.prev_energy = self.prev_hamming
+        # self.prev_energy = self.prev_hamming
 
         if self.state_with_angles:
             return state.reshape(-1).to(self.device)
@@ -378,16 +365,16 @@ class CircuitEnv():
                         assert r >2
         return circuit
 
-    def R_gate(self, qubit, axis, angle):
-        if axis == 'X' or axis == 'x' or axis == 1:
-            return RX(qubit, angle)
-        elif axis == 'Y' or axis == 'y' or axis == 2:
-            return RY(qubit, angle)
-        elif axis == 'Z' or axis == 'z' or axis == 3:
-            return RZ(qubit, angle)
-        else:
-            print("Wrong gate")
-            return 1
+    # def R_gate(self, qubit, axis, angle):
+    #     if axis == 'X' or axis == 'x' or axis == 1:
+    #         return RX(qubit, angle)
+    #     elif axis == 'Y' or axis == 'y' or axis == 2:
+    #         return RY(qubit, angle)
+    #     elif axis == 'Z' or axis == 'z' or axis == 3:
+    #         return RZ(qubit, angle)
+    #     else:
+    #         print("Wrong gate")
+    #         return 1
 
     
     def get_hamming_distance(self, current_stabilizers: list[str]) -> int:
@@ -402,10 +389,11 @@ class CircuitEnv():
 
         current_sorted_stabilizers = sorted(unsorted)
 
+        # TODO is this correct?
         if len(current_stabilizers) == 0:
             return 100
         
-        #TODO change this
+        # TODO is this correct?
         if len(self.original_sorted_stabilizers[0]) != len(current_sorted_stabilizers[0]):
             return 100
 
@@ -413,16 +401,16 @@ class CircuitEnv():
             for x, y in zip(self.original_sorted_stabilizers, current_sorted_stabilizers)])
 
 
-    def get_energy_old(self, thetas=None):
-        circ = self.make_circuit(thetas)
-        qulacs_inst = vc.Parametric_Circuit(n_qubits = self.num_qubits, noise_models = self.noise_models, noise_values = self.noise_values)
-        noisy_circ = qulacs_inst.construct_ansatz(self.state)
-        expval_noisy = vc.get_exp_val(self.num_qubits,noisy_circ,self.hamiltonian,self.phys_noise,self.err_mitig)
-        expval_noiseless = vc.get_exp_val(self.num_qubits,circ,self.hamiltonian)
-        shot_noise = vc.get_shot_noise(self.weights, self.n_shots)          
-        energy = expval_noisy + shot_noise + self.energy_shift
-        energy_noiseless = expval_noiseless  + self.energy_shift
-        return energy, energy_noiseless
+    # def get_energy_old(self, thetas=None):
+    #     circ = self.make_circuit(thetas)
+    #     qulacs_inst = vc.Parametric_Circuit(n_qubits = self.num_qubits, noise_models = self.noise_models, noise_values = self.noise_values)
+    #     noisy_circ = qulacs_inst.construct_ansatz(self.state)
+    #     expval_noisy = vc.get_exp_val(self.num_qubits,noisy_circ,self.hamiltonian,self.phys_noise,self.err_mitig)
+    #     expval_noiseless = vc.get_exp_val(self.num_qubits,circ,self.hamiltonian)
+    #     shot_noise = vc.get_shot_noise(self.weights, self.n_shots)          
+    #     energy = expval_noisy + shot_noise + self.energy_shift
+    #     energy_noiseless = expval_noiseless  + self.energy_shift
+    #     return energy, energy_noiseless
 
     
     def qulacs_to_stim(self, qulacs_circuit) -> stim.Circuit:
@@ -457,80 +445,80 @@ class CircuitEnv():
 
         return hamming_distance
 
-    def scipy_optim(self, method, which_angles = [] ):
-        state = self.state.clone()
-        thetas = state[:, self.num_qubits+3:]
-        rot_pos = (state[:,self.num_qubits: self.num_qubits+3] == 1).nonzero( as_tuple = True )
-        angles = thetas[rot_pos]
+    # def scipy_optim(self, method, which_angles = [] ):
+    #     state = self.state.clone()
+    #     thetas = state[:, self.num_qubits+3:]
+    #     rot_pos = (state[:,self.num_qubits: self.num_qubits+3] == 1).nonzero( as_tuple = True )
+    #     angles = thetas[rot_pos]
 
-        qulacs_inst = vc.Parametric_Circuit(n_qubits=self.num_qubits,noise_models=self.noise_models,noise_values = self.noise_values)
-        qulacs_circuit = qulacs_inst.construct_ansatz(state)
+    #     qulacs_inst = vc.Parametric_Circuit(n_qubits=self.num_qubits,noise_models=self.noise_models,noise_values = self.noise_values)
+    #     qulacs_circuit = qulacs_inst.construct_ansatz(state)
         
-        x0 = np.asarray(angles.cpu().detach())
+    #     x0 = np.asarray(angles.cpu().detach())
 
-        def cost(x):
-            return vc.get_energy_qulacs(x, observable = self.hamiltonian,
-            weights = self.weights, circuit = qulacs_circuit,
-            n_qubits = self.num_qubits, energy_shift = self.energy_shift,
-            n_shots = int(self.n_shots), phys_noise = self.phys_noise,
-                      which_angles=[])
+    #     def cost(x):
+    #         return vc.get_energy_qulacs(x, observable = self.hamiltonian,
+    #         weights = self.weights, circuit = qulacs_circuit,
+    #         n_qubits = self.num_qubits, energy_shift = self.energy_shift,
+    #         n_shots = int(self.n_shots), phys_noise = self.phys_noise,
+    #                   which_angles=[])
 
-        if list(which_angles):
-            result_min_qulacs = scipy.optimize.minimize(cost, x0 = x0[which_angles], method = method, options = {'maxiter':self.global_iters})
-            x0[which_angles] = result_min_qulacs['x']
-            thetas = state[:, self.num_qubits+3:]
-            thetas[rot_pos] = torch.tensor(x0, dtype=torch.float)
-        else:
-            result_min_qulacs = scipy.optimize.minimize(cost, x0 = x0, method = method, options = {'maxiter':self.global_iters})
-            thetas = state[:, self.num_qubits+3:]
-            thetas[rot_pos] = torch.tensor(result_min_qulacs['x'], dtype=torch.float)
+    #     if list(which_angles):
+    #         result_min_qulacs = scipy.optimize.minimize(cost, x0 = x0[which_angles], method = method, options = {'maxiter':self.global_iters})
+    #         x0[which_angles] = result_min_qulacs['x']
+    #         thetas = state[:, self.num_qubits+3:]
+    #         thetas[rot_pos] = torch.tensor(x0, dtype=torch.float)
+    #     else:
+    #         result_min_qulacs = scipy.optimize.minimize(cost, x0 = x0, method = method, options = {'maxiter':self.global_iters})
+    #         thetas = state[:, self.num_qubits+3:]
+    #         thetas[rot_pos] = torch.tensor(result_min_qulacs['x'], dtype=torch.float)
 
-        return thetas, result_min_qulacs['nfev'], result_min_qulacs['x']
+    #     return thetas, result_min_qulacs['nfev'], result_min_qulacs['x']
 
 
-    def scipy_optim_(self, method, which_angles=[]):
-        state = self.state.clone()
-        thetas = state[:, self.num_qubits+3:]
-        rot_pos = (state[:,self.num_qubits: self.num_qubits+3] == 1).nonzero( as_tuple = True )
-        angles = thetas[rot_pos]
+    # def scipy_optim_(self, method, which_angles=[]):
+    #     state = self.state.clone()
+    #     thetas = state[:, self.num_qubits+3:]
+    #     rot_pos = (state[:,self.num_qubits: self.num_qubits+3] == 1).nonzero( as_tuple = True )
+    #     angles = thetas[rot_pos]
 
-        qulacs_inst = vc.Parametric_Circuit(n_qubits=self.num_qubits)
-        qulacs_circuit = qulacs_inst.construct_ansatz(state)
-        x0 = np.asarray(angles.cpu().detach())
+    #     qulacs_inst = vc.Parametric_Circuit(n_qubits=self.num_qubits)
+    #     qulacs_circuit = qulacs_inst.construct_ansatz(state)
+    #     x0 = np.asarray(angles.cpu().detach())
 
-        if list(which_angles):
-            result_min_qulacs = scipy.optimize.minimize(vc.get_energy_qulacs, x0=x0[which_angles],
-                                                            args=(  self.hamiltonian,
-                                                                    self.weights,
-                                                                    qulacs_circuit, 
-                                                                    self.num_qubits, 
-                                                                    self.energy_shift, 
-                                                                    int(self.n_shots/100),
-                                                                    self.noise_value,
-                                                                    self.M,
-                                                                    which_angles),
-                                                            method=method,
-                                                            options={'maxiter':self.global_iters})
-            x0[which_angles] = result_min_qulacs['x']
-            thetas = state[:, self.num_qubits+3:]
-            thetas[rot_pos] = torch.tensor(x0, dtype=torch.float)
-        else:
-            result_min_qulacs = scipy.optimize.minimize(vc.get_energy_qulacs, x0=x0,
-                                                        args=(  self.hamiltonian,
-                                                                self.weights,
-                                                                qulacs_circuit, 
-                                                                self.num_qubits, 
-                                                                self.energy_shift, 
-                                                                int(self.n_shots/100),
-                                                                self.noise_value,
-                                                                self.M,
-                                                                which_angles),
-                                                        method=method,
-                                                        options={'maxiter':self.global_iters})
+    #     if list(which_angles):
+    #         result_min_qulacs = scipy.optimize.minimize(vc.get_energy_qulacs, x0=x0[which_angles],
+    #                                                         args=(  self.hamiltonian,
+    #                                                                 self.weights,
+    #                                                                 qulacs_circuit, 
+    #                                                                 self.num_qubits, 
+    #                                                                 self.energy_shift, 
+    #                                                                 int(self.n_shots/100),
+    #                                                                 self.noise_value,
+    #                                                                 self.M,
+    #                                                                 which_angles),
+    #                                                         method=method,
+    #                                                         options={'maxiter':self.global_iters})
+    #         x0[which_angles] = result_min_qulacs['x']
+    #         thetas = state[:, self.num_qubits+3:]
+    #         thetas[rot_pos] = torch.tensor(x0, dtype=torch.float)
+    #     else:
+    #         result_min_qulacs = scipy.optimize.minimize(vc.get_energy_qulacs, x0=x0,
+    #                                                     args=(  self.hamiltonian,
+    #                                                             self.weights,
+    #                                                             qulacs_circuit, 
+    #                                                             self.num_qubits, 
+    #                                                             self.energy_shift, 
+    #                                                             int(self.n_shots/100),
+    #                                                             self.noise_value,
+    #                                                             self.M,
+    #                                                             which_angles),
+    #                                                     method=method,
+    #                                                     options={'maxiter':self.global_iters})
             
-            thetas = state[:, self.num_qubits+3:]
-            thetas[rot_pos] = torch.tensor(result_min_qulacs['x'], dtype=torch.float)
-        return thetas, result_min_qulacs['x']
+    #         thetas = state[:, self.num_qubits+3:]
+    #         thetas[rot_pos] = torch.tensor(result_min_qulacs['x'], dtype=torch.float)
+    #     return thetas, result_min_qulacs['x']
     
     def _get_average_cost(self) -> float:
         """
