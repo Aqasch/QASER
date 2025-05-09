@@ -31,7 +31,8 @@ class Saver:
                                                  'nfev': [], 
                                                  'opt_ang': [],
                                                  'time' : [],
-                                                 'reward' : []
+                                                 'reward' : [],
+                                                 'generators': []
                                                  }
         elif mode == 'test':
             self.stats_file[mode][episode_no] = {'actions': [],
@@ -56,7 +57,7 @@ def modify_state(state,env):
         
     if conf['agent']['en_state']:
         
-        state = torch.cat((state, torch.tensor(env.prev_energy,dtype=torch.float,device=device).view(1)))
+        state = torch.cat((state, torch.tensor(env.prev_hamming,dtype=torch.float,device=device).view(1)))
         
     if "threshold_in_state" in conf['agent'].keys() and conf['agent']["threshold_in_state"]:
         state = torch.cat((state, torch.tensor(env.done_threshold,dtype=torch.float,device=device).view(1)))
@@ -91,7 +92,7 @@ def agent_test(env, agent, episode_no, seed, output_path,threshold):
         if done:
             
             agent.saver.stats_file['test'][episode_no]['done_threshold'] = env.done_threshold
-            agent.saver.stats_file['test'][episode_no]['bond_distance'] = env.current_bond_distance
+            # agent.saver.stats_file['test'][episode_no]['bond_distance'] = env.current_bond_distance
             errors_current_bond = [val['errors'][-1] for val in agent.saver.stats_file['test'].values()
                                    if val['done_threshold'] == env.done_threshold]
             if len(errors_current_bond) > 0 and min(errors_current_bond) > env.error:
@@ -108,9 +109,9 @@ def one_episode(episode_no, env, agent, episodes):
     t0 = time.time()
     agent.saver.get_new_episode('train', episode_no)
     state = env.reset()
-    agent.saver.stats_file['train'][episode_no]['bond_distance'] = env.current_bond_distance
-    agent.saver.stats_file['train'][episode_no]['done_threshold'] = env.done_threshold
-    
+    # agent.saver.stats_file['train'][episode_no]['bond_distance'] = env.current_bond_distance
+    # agent.saver.stats_file['train'][episode_no]['done_threshold'] = env.done_threshold
+
     state = modify_state(state, env)
     agent.policy_net.train()
     rewards4return = []
@@ -138,6 +139,8 @@ def one_episode(episode_no, env, agent, episodes):
         agent.saver.stats_file['train'][episode_no]['errors_noiseless'].append(env.error_noiseless)
         agent.saver.stats_file['train'][episode_no]['time'].append(time.time()-t0)
         agent.saver.stats_file['train'][episode_no]['reward'].append(env.rwd)
+        agent.saver.stats_file['train'][episode_no]['generators'].append(env.generators_save)
+
         # agent.saver.stats_file['train'][episode_no]['nfev'].append(env.nfev)
 
         # wandb.log(
@@ -225,8 +228,8 @@ if __name__ == '__main__':
 
     results_path ="results/"
     pathlib.Path(f"{results_path}{args.experiment_name}{args.config}").mkdir(parents=True, exist_ok=True)
-    # device = torch.device(f"cuda:{args.gpu_id}")
-    device = torch.device(f"cpu:0")
+    device = torch.device(f"cuda:{args.gpu_id}")
+    # device = torch.device(f"cpu:0")
     
     
     conf = get_config(args.experiment_name, f'{args.config}.cfg')

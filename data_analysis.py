@@ -54,9 +54,9 @@ if __name__ == "__main__":
     # post_process_val = - 77.89106685 + 73.29410675728349
 
     # 10q H2O
-    directory = 'no_noise_lbmt_cobyla_10qH2O_step_350_F0_energy_untweaked'
-    n_qub = 10
-    post_process_val = get_real_min_energy(fake_min_energy=-79.16503540049368, mol_data_file='H2O_10q_geom_H_-0.021,_-0.002,_0.000;_O_0.835,_0.452,_0.000;_H_1.477,_-0.273,_0.000_jordan_wigner')
+    # directory = 'no_noise_lbmt_cobyla_10qH2O_step_350_F0_energy_untweaked'
+    # n_qub = 10
+    # post_process_val = get_real_min_energy(fake_min_energy=-79.16503540049368, mol_data_file='H2O_10q_geom_H_-0.021,_-0.002,_0.000;_O_0.835,_0.452,_0.000;_H_1.477,_-0.273,_0.000_jordan_wigner')
 
     # 6q LiH
     # directory = 'no_noise_lbmt_cobyla_6qLiH_step_100_F0_energy_untweaked'
@@ -87,11 +87,11 @@ if __name__ == "__main__":
         max_rwd = 0
 
         for ep in range(nr_ep_per_seed[seed - 1]):
-            err = data['train'][ep]['errors'][-1] + post_process_val
+            err = data['train'][ep]['errors'][-1]
             rwd = data['train'][ep]['reward'][-1]
             time = data['train'][ep]['time'][-1]
             nfev = data['train'][ep]['nfev'][-1]
-            done_thr = data['train'][ep]['done_threshold'] + post_process_val
+            done_thr = data['train'][ep]['done_threshold']
             cumulative_rwd_per_ep = sum(data['train'][ep]['reward'])
             nfev_list.append(nfev)
             err_list.append(err)

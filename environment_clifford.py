@@ -28,6 +28,9 @@ class CircuitEnv():
         self.num_qubits = conf['env']['num_qubits']
         self.num_layers = conf['env']['num_layers']
 
+        self.xyz_val1 = conf['env']['xyz_val1']
+        self.xyz_div1 = conf['env']['xyz_div1']
+
         # self.random_halt = int(conf['env']['rand_halt'])
         
         self.n_shots =   conf['env']['n_shots'] 
@@ -52,7 +55,7 @@ class CircuitEnv():
         # self.err_mitig = conf['env']['err_mitig']
         
         # self.ham_mapping = conf['problem']['mapping']
-        # self.geometry = conf['problem']['geometry'].replace(" ", "_")
+        self.geometry = conf['problem']['geometry'].replace(" ", "_")
 
         # self.fake_min_energy = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else None
         
@@ -67,7 +70,7 @@ class CircuitEnv():
         # self.state_with_angles = conf['agent']['angles']
         self.current_number_of_cnots = 0
         
-        # self.curriculum_dict = {}
+        self.curriculum_dict = {}
 
         # __ham = np.load(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
         # print(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
@@ -82,11 +85,12 @@ class CircuitEnv():
         # self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
         # self.max_eig = max(eigvals)+self.energy_shift
 
-        # self.curriculum_dict[self.geometry[-3:]] = curricula.__dict__[conf['env']['curriculum_type']](conf['env'], target_energy=min_eig)
+        self.min_eig = 1.0
+        self.curriculum_dict[self.geometry[-3:]] = curricula.__dict__[conf['env']['curriculum_type']](conf['env'], target_energy=self.min_eig)
      
         self.device = device
         self.ket = QuantumState(self.num_qubits)
-        # self.done_threshold = conf['env']['accept_err']
+        self.done_threshold = conf['env']['accept_err']
         self.max_len = self.num_layers
         
         self.max_cost = 0
@@ -98,30 +102,34 @@ class CircuitEnv():
 
         # these are the stabilizers for the d=3 surface code 
         self.original_stabilizers = [
-                stim.PauliString("ZZ_______"),
-                stim.PauliString("_ZZ_ZZ___"),
-                stim.PauliString("___ZZ_ZZ_"),
-                stim.PauliString("_______ZZ"),
-                stim.PauliString("XX_XX____"),
-                stim.PauliString("__X__X___"),
-                stim.PauliString("____XX_XX"),
-                stim.PauliString("___X__X__"),
-                stim.PauliString("XXX______"),
-            ]
+            stim.PauliString("ZZ_______"),
+            stim.PauliString("_ZZ_ZZ___"),
+            stim.PauliString("___ZZ_ZZ_"),
+            stim.PauliString("_______ZZ"),
+            stim.PauliString("XX_XX____"),
+            stim.PauliString("__X__X___"),
+            stim.PauliString("____XX_XX"),
+            stim.PauliString("___X__X__"),
+            stim.PauliString("XXX______"),#op logic
+        ]
 
-        self.original_sorted_stabilizers = sorted([str(ps) for ps in self.original_stabilizers])
+        self.original_stabilizers = [str(ps) for ps in self.original_stabilizers]
+        print(self.original_stabilizers)
 
         if self.fn_type in ['F0_energy_depth_up']:
             self.kickstart_depth = conf['env']['kickstart_depth']
 
-        if self.fn_type in ['F0_energy_untweaked']:
+        if self.fn_type in ['F0_energy_untweaked', 'F0_hamming']:
             self.max_cost = float(conf['env']['max_cost'])
             self.CNOT_WEIGHT = float(conf['env']['cnot_weight'])
             self.H_WEIGHT = float(conf['env']['h_weight'])
 
         self.state_size = self.num_layers*self.num_qubits*(self.num_qubits+1)
+        print('STATE: ', self.state_size)
+        # exit()
+
         self.step_counter = -1
-        # self.prev_energy = 1
+        self.prev_energy = 1
         self.prev_hamming = 100
         self.moments = [0]*self.num_qubits
         self.illegal_actions = [[]]*self.num_qubits
@@ -159,7 +167,7 @@ class CircuitEnv():
         #     self.global_iters = 0
         #     self.optim_method = None
     
-    def get_cirq_circuit(self)
+    def get_cirq_circuit(self):
         circuit = self.make_circuit()
         total_gate_count = circuit.get_gate_count()
         
@@ -178,6 +186,8 @@ class CircuitEnv():
                 ctrl_qubit = cirq_qubits[the_gate.get_control_index_list()[0]]
                 tgt_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
                 cirq_circuit.append(cirq.CNOT(ctrl_qubit, tgt_qubit))
+        
+        # print(cirq_circuit)
 
         return cirq_circuit
         
@@ -238,7 +248,9 @@ class CircuitEnv():
             self.current_cost = self._get_average_cost()
             self.current_degree = self._get_average_degree()
         
-        hamming_distance = self.get_hamming()
+        hamming_distance, stabilizers_save = self.get_hamming()
+        stabilizers_save = [str(ps) for ps in stabilizers_save]
+
         rwd = self.reward_fn(hamming_distance)
         self.rwd = rwd
 
@@ -250,23 +262,26 @@ class CircuitEnv():
         self.prev_hamming = np.copy(hamming_distance)
 
         # TODO Akash what do we do about this?
-        # energy_done = int(self.error < self.done_threshold)
--
+        self.error = hamming_distance
+        self.error_noiseless = self.error
+
+        energy_done = int(self.error < self.done_threshold)
+
         layers_done = self.step_counter == (self.num_layers - 1)
 
         # TODO Akash what do we do about this?
-        # done = int(energy_done or layers_done)
-        done = int(layers_done)
+        done = int(energy_done or layers_done)
 
         self.previous_action = copy.deepcopy(action)
+        self.generators_save = stabilizers_save
 
         # if self.random_halt:
         #     if self.step_counter == self.halting_step:
         #         done = 1
-        # if done:
-        #     self.curriculum.update_threshold(energy_done=energy_done)
-        #     self.done_threshold = self.curriculum.get_current_threshold()
-        #     self.curriculum_dict[str(self.current_bond_distance)] = copy.deepcopy(self.curriculum)
+        if done:
+            self.curriculum.update_threshold(energy_done=energy_done)
+            self.done_threshold = self.curriculum.get_current_threshold()
+            self.curriculum_dict[str(self.current_bond_distance)] = copy.deepcopy(self.curriculum)
         
         # if self.state_with_angles:
         #     return next_state.view(-1).to(self.device), torch.tensor(rwd, dtype=torch.float32, device=self.device), done
@@ -301,11 +316,12 @@ class CircuitEnv():
         self.step_counter = -1
         
         self.moments = [0]*self.num_qubits
-        # self.current_bond_distance = self.geometry[-3:]
-        # self.curriculum = copy.deepcopy(self.curriculum_dict[str(self.current_bond_distance)])
-        # self.done_threshold = copy.deepcopy(self.curriculum.get_current_threshold())
 
-        self.prev_hamming = self.get_hamming(state)
+        self.current_bond_distance = self.geometry[-3:]
+        self.curriculum = copy.deepcopy(self.curriculum_dict[str(self.current_bond_distance)])
+        self.done_threshold = copy.deepcopy(self.curriculum.get_current_threshold())
+
+        self.prev_hamming, _ = self.get_hamming(state)
 
         state = state[:, :self.num_qubits+1]
         return state.reshape(-1).to(self.device)
@@ -346,27 +362,42 @@ class CircuitEnv():
                         assert r >2
         return circuit
     
+    def get_xyz_distance(self, pauli_a: str, pauli_b: str):
+        pauli_a = str(pauli_a)
+        pauli_b = str(pauli_b)
+
+        n = len(pauli_a)
+
+        mod_hamming = 0
+        # start from 1 to ignore sign
+        for i in range(1, n):
+            a = pauli_a[i]
+            b = pauli_b[i]
+
+            if a == b:
+                mod_hamming += 0
+            elif a == '_' or b == '_':
+                mod_hamming += self.xyz_val1
+            else:
+                mod_hamming += 1
+
+        return mod_hamming / self.xyz_div1 #if mod_hamming > 40 else 81
+
+    
     def get_hamming_distance(self, current_stabilizers: list[str]) -> int:
         """
         Computes the Hamming distance between the original stabilizers of the surface code 
         and the stabilizers of the current circuit.
         """
-        unsorted = []
-        for s in current_stabilizers:
-            unsorted.append(str(s))
+        current_stabilizers = [str(ps) for ps in current_stabilizers]
 
-        current_sorted_stabilizers = sorted(unsorted)
-
-        # TODO is this correct?
         if len(current_stabilizers) == 0:
-            return 100
+            return 100.0
         
-        # TODO is this correct?
-        if len(self.original_sorted_stabilizers[0]) != len(current_sorted_stabilizers[0]):
-            return 100
+        if len(self.original_stabilizers) != len(current_stabilizers):
+            return 100.0
 
-        return sum([int((np.array(list(x)) != np.array(list(y))).sum()) 
-            for x, y in zip(self.original_sorted_stabilizers, current_sorted_stabilizers)])
+        return float(sum([self.get_xyz_distance(x, y) for x, y in zip(self.original_stabilizers, current_stabilizers)]))
 
     
     def qulacs_to_stim(self, qulacs_circuit) -> stim.Circuit:
@@ -398,7 +429,7 @@ class CircuitEnv():
 
         print(hamming_distance)
 
-        return hamming_distance
+        return hamming_distance, current_stabilizers
     
     def _get_average_cost(self) -> float:
         """
@@ -461,7 +492,7 @@ class CircuitEnv():
                     (self.energy/self.min_eig))
         
         elif self.fn_type == 'F0_hamming':
-            return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost), (1 / energy))
+            return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost), (1 / (energy)))
 
         
     def illegal_action_new(self):

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from itertools import product, accumulate
 
 
 plt.rcParams.update({'font.size': 14})
@@ -214,5 +215,80 @@ def plot_performance_agent():
             plt.savefig(f'agent_performance_{directories[0]}_{seed}.png', dpi=300)
 
 
+def plot_performance_agent_clifford():
+    seed = 1
+    directory = 'clifford_circuit_test'
+
+    fig, axs = plt.subplots(1, 3, figsize=(12, 5), sharey=False)
+    axs[0].grid(True, linestyle='--', zorder=0, alpha=0.7)
+    axs[1].grid(True, linestyle='--', zorder=0, alpha=0.7)
+    axs[2].grid(True, linestyle='--', zorder=0, alpha=0.7)
+
+    axs[0].set_ylabel('Error threshold 0.99995', fontsize=14)
+    axs[1].set_ylabel('Error threshold 0.9995', fontsize=14)
+    axs[2].set_ylabel('Error threshold 0.995', fontsize=14)
+
+    axs[0].set_xlabel('Steps', fontsize=14)
+    axs[1].set_xlabel('Steps', fontsize=14)
+    axs[2].set_xlabel('Steps', fontsize=14)
+
+    linestyle_list = ['-', '--']
+    nr_episodes = 1000
+
+    label = "ERROR"
+    
+    err_lists = []
+    cumerr_lists = []
+
+    for directory in ['clifford_circuit_test', 'clifford_circuit_test_less_exp', 'clifford_circuit_test_even_less_exp']:
+        data = np.load(f'results/finalize/{directory}/summary_{seed}.npy',allow_pickle=True)[()]
+
+        # nr_episodes = min(len(data['train'].keys()), nr_episodes)
+        rwd_list = []
+        done_list = []
+        err_list = []
+        cumulative_rwd_per_ep_list = []
+        max_rwd = 0
+
+        for ep in range(nr_episodes):
+            rwd = data['train'][ep]['reward'][-1]
+            done_thr = data['train'][ep]['done_threshold']
+            err = data['train'][ep]['errors']
+
+            if directory == 'clifford_circuit_test_less_exp':
+                stabilizer =  data['train'][ep]['generators'][-1]
+                print(stabilizer, err[-1])
+
+            cumulative_rwd_per_ep = sum(data['train'][ep]['reward'])
+            cumulative_rwd_per_ep_last = data['train'][ep]['reward'][-1]
+
+            rwd_list.append(rwd)
+            done_list.append(done_thr)
+            err_list.append(err)
+            max_rwd = max(max_rwd, rwd)
+            cumulative_rwd_per_ep_list.append(cumulative_rwd_per_ep_last)
+
+        # cumulative_rewards = list(accumulate(rwd_list))
+
+        err_list = [x for xs in err_list for x in xs]
+        err_lists.append(err_list)
+        cumerr_lists.append(rwd_list)
+    
+    axs[0].plot(cumerr_lists[0], '.', label=label)
+    axs[1].plot(cumerr_lists[1], '.', label=label)
+    axs[2].plot(cumerr_lists[2], '.', label=label)
+
+    axs[0].legend(fontsize=12)
+
+    # axs[1].semilogy(cumulative_rewards, linestyle_list[i], label=label)
+
+    # axs[0].tick_params(axis='both', which='minor', labelsize=14)
+    # axs[1].tick_params(axis='both', which='minor', labelsize=14)
+
+    plt.tight_layout()
+    plt.savefig(f'agent_performance_{directory}_{seed}_reward.pdf', dpi=300)
+    plt.savefig(f'agent_performance_{directory}_{seed}_reward.png', dpi=300)
+
 if __name__ == "__main__":
-    plot_performance_agent()
+    # plot_performance_agent()
+    plot_performance_agent_clifford()
