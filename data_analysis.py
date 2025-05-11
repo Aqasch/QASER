@@ -1,7 +1,8 @@
 import numpy as np
 from itertools import product, accumulate
-from qiskit import QuantumCircuit
+# from qiskit import QuantumCircuit
 import matplotlib.pyplot as plt
+import cirq
 
 
 def get_real_min_energy(fake_min_energy, mol_data_file):
@@ -38,14 +39,30 @@ def make_circuit_qiskit(action, qubits, circuit):
         circuit.cx([ctrl], [targ])
     if rot_qubit < qubits:
         n_rot += 1
-        if rot_axis == 1:
-            circuit.rx(0, rot_qubit) # TODO: make a function and take angles
-        elif rot_axis == 2:
-            circuit.ry(0, rot_qubit)
-        elif rot_axis == 3:
-            circuit.rz(0, rot_qubit)
+        # if rot_axis == 1:
+        #     circuit.rx(0, rot_qubit) # TODO: make a function and take angles
+        # elif rot_axis == 2:
+        #     circuit.ry(0, rot_qubit)
+        # elif rot_axis == 3:
+        #     circuit.rz(0, rot_qubit)
+        circuit.h(rot_qubit)
     return circuit, n_cx, n_rot
 
+
+def make_circuit_cirq(action, qubits, circuit, cirq_qubits):
+    n_cx = 0
+    n_rot = 0
+    ctrl = action[0]
+    targ = (action[0] + action[1]) % qubits
+    rot_qubit = action[2]
+    rot_axis = action[3]
+    if ctrl < qubits:
+        n_cx += 1
+        circuit.append(cirq.CX.on(cirq_qubits[ctrl], cirq_qubits[targ]))
+    if rot_qubit < qubits:
+        n_rot += 1
+        circuit.append(cirq.H.on(cirq_qubits[rot_qubit]))
+    return circuit, n_cx, n_rot
 
 if __name__ == "__main__":
     # 8q H2O
@@ -69,31 +86,33 @@ if __name__ == "__main__":
     # post_process_val = get_real_min_energy(fake_min_energy=-19.8615891832814, mol_data_file='BEH2_6q_geom_H_0.000_0.000_-1.330;_Be_0.000_0.000_0.000;_H_0.000_0.000_1.330_jordan_wigner')
 
 
-    # nr_episodes = 10000
-    nr_ep_per_seed = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    directory = 'clifford_circuit_test_less_exp_d3_working'
+    n_qub = 9
 
-    for seed in range(1, 11):
+    for seed in range(1, 2):
         data = np.load(f'results/finalize/{directory}/summary_{seed}.npy',allow_pickle=True)[()]
-        # nr_episodes = min(len(data['train'].keys()), nr_episodes)
-        nr_ep_per_seed[seed - 1] = len(data['train'].keys())
+        nr_episodes = len(data['train'].keys())
 
-    for seed in range(1, 11):
-        data = np.load(f'results/finalize/{directory}/summary_{seed}.npy',allow_pickle=True)[()]
         err_list = []
         rwd_list = []
         done_list = []
         nfev_list = []
         cumulative_rwd_per_ep_list = []
         max_rwd = 0
+        succ_eps = []
 
-        for ep in range(nr_ep_per_seed[seed - 1]):
-            err = data['train'][ep]['errors'][-1]
+        for ep in range(nr_episodes):
+            err = np.min(data['train'][ep]['errors'])
             rwd = data['train'][ep]['reward'][-1]
             time = data['train'][ep]['time'][-1]
-            nfev = data['train'][ep]['nfev'][-1]
+            # nfev = data['train'][ep]['nfev'][-1]
+
+            if err == 0.0:
+                succ_eps.append(ep)
+
             done_thr = data['train'][ep]['done_threshold']
             cumulative_rwd_per_ep = sum(data['train'][ep]['reward'])
-            nfev_list.append(nfev)
+            # nfev_list.append(nfev)
             err_list.append(err)
             rwd_list.append(rwd)
             done_list.append(done_thr)
@@ -103,23 +122,52 @@ if __name__ == "__main__":
         cumulative_rewards = list(accumulate(rwd_list))
         cumulative_nfevs = list(accumulate(nfev_list))
 
+        print(succ_eps)
+
         # plt.plot(rwd_list, 'o', markersize = 4) 
         plt.semilogy(done_list, markersize = 4)
         # plt.plot(cumulative_rewards, label = 'cumulative reward')
 
         succ_ep = np.argmin(err_list)
+        err_1125 = np.argmin(data['train'][1125]['errors'])
+        print(data['train'][1125]['errors'][:err_1125+1])
+
+
+
+        print('SUCC_EP: ', succ_ep, min(err_list))
+
         sum_time = 0
         for ep in range(succ_ep):
             time = data['train'][ep]['time'][-1] / 3600
             sum_time += time
 
         actions = data['train'][succ_ep]['actions']
-        circuit = QuantumCircuit(n_qub)
-        for a in actions:
-            action = dictionary_of_actions(n_qub)[a]
-            final_ circuit, n_cx, n_rot = make_circuit_qiskit(action, n_qub, circuit)
-        gate_info = final_circuit.count_ops()
 
-        print(seed, directory, np.min(err_list), np.argmin(err_list), gate_info['cx'], final_circuit.depth(), sum(cumulative_nfevs), sum(gate_info.values()), sum_time)
+        circuit = cirq.Circuit()
+        cirq_qubits = [cirq.NamedQubit(str(s)) for s in range(n_qub)]
+        n_cx = 0
+        n_rot = 0
+
+        for a in actions[:err_1125+1]:
+            action = dictionary_of_actions(n_qub)[a]
+            ctrl = action[0]
+            targ = (action[0] + action[1]) % n_qub
+            rot_qubit = action[2]
+            rot_axis = action[3]
+
+            if ctrl < n_qub:
+                n_cx += 1
+                circuit.append([cirq.CX(cirq_qubits[ctrl], cirq_qubits[targ])])
+            if rot_qubit < n_qub:
+                n_rot += 1
+                circuit.append([cirq.H(cirq_qubits[rot_qubit])])
+
+        print(n_cx)
+        print(n_rot)
+        print(circuit)
+        
+        print(cirq.contrib.quirk.circuit_to_quirk_url(circuit))
+
+        # print(seed, directory, np.min(err_list), np.argmin(err_list), gate_info['cx'], final_circuit.depth(), sum(cumulative_nfevs), sum(gate_info.values()), sum_time)
         # plt.legend()
         # plt.savefig('rwd_plot_done_h20_semilog.png', dpi=300)

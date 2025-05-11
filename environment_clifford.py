@@ -285,7 +285,7 @@ class CircuitEnv():
         self.current_cost = 0
         self.current_degree = 0
 
-        original_stabilizers = get_d4_stabilizers()
+        original_stabilizers = get_d3_stabilizers()
         print(original_stabilizers)
 
         tbl = stim.Tableau.from_stabilizers(original_stabilizers)
@@ -456,7 +456,7 @@ class CircuitEnv():
         self.error = hamming_distance
         self.error_noiseless = self.error
 
-        energy_done = int(self.error < self.done_threshold)
+        energy_done = int(self.error <= self.done_threshold)
 
         layers_done = self.step_counter == (self.num_layers - 1)
 
