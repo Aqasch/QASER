@@ -22,14 +22,195 @@ from qulacs import ParametricQuantumCircuit
 import copy
 import time
 
+def get_d5_stabilizers():
+    xx = [
+        [0, 1, 5, 6],
+        [2, 3, 7, 8],
+        [6, 7, 11, 12],
+        [8, 9, 13, 14],
+        [10, 11, 15, 16],
+        [12, 13, 17, 18],
+        [16, 17, 21, 22],
+        [18, 19, 23, 24],
+        [1, 2],
+        [3, 4],
+        [22, 23],
+        [20, 21],
+        [0, 5, 10, 15, 20]
+    ]
+
+    zz = [
+        [1, 2, 6, 7],
+        [3, 4, 8, 9],
+        [5, 6, 10, 11],
+        [7, 8, 12, 13],
+        [11, 12, 16, 17],
+        [13, 14, 18, 19],
+        [15, 16, 20, 21],
+        [17, 18, 22, 23],
+        [0, 5],
+        [10, 15],
+        [9, 14],
+        [19, 24]
+    ]
+
+    template = "_" * 25
+
+    stabilizers = []
+    for stabi in xx:
+        stab = template
+        for pos in stabi:
+            stab = stab[:pos] + "X" + stab[pos + 1 :]
+        stabilizers.append(stab)
+
+    for stabi in zz:
+        stab = template
+        for pos in stabi:
+            stab = stab[:pos] + "Z" + stab[pos + 1 :]
+        stabilizers.append(stab)
+
+    return [stim.PauliString(stab) for stab in stabilizers]
+
+
+def get_d7_stabilizers():
+    zz = [
+        [0,1],
+        [2,3],
+        [4,5],
+        [1,2,8,9],
+        [3,4,10,11],
+        [5,6,12,13],
+        [7,8,14,15],
+        [9,10,16,17],
+        [11,12,18,19],
+        [15,16,22,23],
+        [17,18,24,25],
+        [19,20,26,27],
+        [21,22,28,29],
+        [23,24,30,31],
+        [25,26,32,33],
+        [29,30,36,37],
+        [31,32,38,39],
+        [33,34,40,41],
+        [35,36,42,43],
+        [37,38,44,45],
+        [39,40,46,47],
+        [43,44],
+        [45,46],
+        [47,48],
+    ]
+
+    xx = [
+        [0,1,7,8],
+        [2,3,9,10],
+        [4,5,11,12],
+        [6,13],
+        [7,14],
+        [8,9,15,16],
+        [10,11,17,18],
+        [12,13,19,20],
+        [14,15,21,22],
+        [16,17,23,24],
+        [18,19,25,26],
+        [20,27],
+        [21,28],
+        [22,23,29,30],
+        [24,25,31,32],
+        [26,27,33,34],
+        [28,29,35,36],
+        [30,31,37,38],
+        [32,33,39,40],
+        [34,41],
+        [35,42],
+        [36,37,43,44],
+        [38,39,45,46],
+        [40,41,47,48],
+        [0,1,2,3,4,5,6],
+    ]
+
+    template = "_" * 49
+
+    stabilizers = []
+    for stabi in xx:
+        stab = template
+        for pos in stabi:
+            stab = stab[:pos] + "X" + stab[pos + 1 :]
+        stabilizers.append(stab)
+
+    for stabi in zz:
+        stab = template
+        for pos in stabi:
+            stab = stab[:pos] + "Z" + stab[pos + 1 :]
+        stabilizers.append(stab)
+
+    return [stim.PauliString(stab) for stab in stabilizers]
+
+
+def get_d3_stabilizers():
+    return [
+        stim.PauliString("ZZ_______"),
+        stim.PauliString("_ZZ_ZZ___"),
+        stim.PauliString("___ZZ_ZZ_"),
+        stim.PauliString("_______ZZ"),
+        stim.PauliString("XX_XX____"),
+        stim.PauliString("__X__X___"),
+        stim.PauliString("____XX_XX"),
+        stim.PauliString("___X__X__"),
+        stim.PauliString("XXX______"),#op logic
+    ]
+
+
+def get_d4_stabilizers():
+    xx = [
+        [0, 1, 4, 5],
+        [2, 3, 6, 7],
+        [8, 9, 12, 13],
+        [5, 6, 9, 10],
+        [10, 11, 14, 15],
+        [4, 8],
+        [7, 11],
+        [0, 1, 2, 3]
+    ]
+
+    zz = [
+        [1, 2, 5, 6],
+        [4, 5, 8, 9],
+        [6, 7, 10, 11],
+        [9, 10, 13, 14],
+        [0, 1],
+        [2, 3],
+        [12, 13],
+        [14, 15]
+    ]
+
+    template = "_" * 16
+    # print(stab)
+
+    stabilizers = []
+    for stabi in xx:
+        stab = template
+        for pos in stabi:
+            stab = stab[:pos] + "X" + stab[pos + 1 :]
+        stabilizers.append(stab)
+
+    for stabi in zz:
+        stab = template
+        for pos in stabi:
+            stab = stab[:pos] + "Z" + stab[pos + 1 :]
+        stabilizers.append(stab)
+
+    # print(stabilizers)
+    return [stim.PauliString(stab) for stab in stabilizers]
+
+
 class CircuitEnv():
 
     def __init__(self, conf, device):
         self.num_qubits = conf['env']['num_qubits']
         self.num_layers = conf['env']['num_layers']
 
-        self.xyz_val1 = conf['env']['xyz_val1']
-        self.xyz_div1 = conf['env']['xyz_div1']
+        self.xyz_val1 = float(conf['env']['xyz_val1'])
+        self.xyz_div1 = float(conf['env']['xyz_div1'])
 
         # self.random_halt = int(conf['env']['rand_halt'])
         
@@ -89,9 +270,13 @@ class CircuitEnv():
         self.curriculum_dict[self.geometry[-3:]] = curricula.__dict__[conf['env']['curriculum_type']](conf['env'], target_energy=self.min_eig)
      
         self.device = device
-        self.ket = QuantumState(self.num_qubits)
+        
+        # self.ket = QuantumState(self.num_qubits)
+
         self.done_threshold = conf['env']['accept_err']
-        self.max_len = self.num_layers
+        # self.max_len = self.num_layers
+        self.max_len = 10000
+
         
         self.max_cost = 0
         self.CNOT_WEIGHT = 0
@@ -100,26 +285,29 @@ class CircuitEnv():
         self.current_cost = 0
         self.current_degree = 0
 
-        # these are the stabilizers for the d=3 surface code 
-        self.original_stabilizers = [
-            stim.PauliString("ZZ_______"),
-            stim.PauliString("_ZZ_ZZ___"),
-            stim.PauliString("___ZZ_ZZ_"),
-            stim.PauliString("_______ZZ"),
-            stim.PauliString("XX_XX____"),
-            stim.PauliString("__X__X___"),
-            stim.PauliString("____XX_XX"),
-            stim.PauliString("___X__X__"),
-            stim.PauliString("XXX______"),#op logic
-        ]
+        original_stabilizers = get_d4_stabilizers()
+        print(original_stabilizers)
 
-        self.original_stabilizers = [str(ps) for ps in self.original_stabilizers]
+        tbl = stim.Tableau.from_stabilizers(original_stabilizers)
+        circ = tbl.to_circuit()
+
+
+        s = stim.TableauSimulator()
+        s.do_circuit(circ)
+        self.original_stabilizers = [str(ps) for ps in s.canonical_stabilizers()]
+
+        self.max_hamming = float(sum([len(s) for s in self.original_stabilizers]))
+
+        print('MAX HAMMING: ', self.max_hamming)
+
         print(self.original_stabilizers)
+
+        self.min_hamming = 1000000.0
 
         if self.fn_type in ['F0_energy_depth_up']:
             self.kickstart_depth = conf['env']['kickstart_depth']
 
-        if self.fn_type in ['F0_energy_untweaked', 'F0_hamming']:
+        if self.fn_type in ['F0_energy_untweaked', 'F0_hamming', 'F0_matched']:
             self.max_cost = float(conf['env']['max_cost'])
             self.CNOT_WEIGHT = float(conf['env']['cnot_weight'])
             self.H_WEIGHT = float(conf['env']['h_weight'])
@@ -238,25 +426,28 @@ class CircuitEnv():
 
         self.state = next_state.clone()
 
-        self.hamming_distance = self.get_hamming()
+        # self.current_circuit = self.get_cirq_circuit()        
 
-        self.current_circuit = self.get_cirq_circuit()        
-
-        if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up', 'F0_hamming']:
-            self.current_len = self._len_move_to_left()
-            self.current_gate_count = self._get_gate_count()
-            self.current_cost = self._get_average_cost()
-            self.current_degree = self._get_average_degree()
+        # if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up', 'F0_hamming']:
+        #     self.current_len = self._len_move_to_left()
+        #     self.current_gate_count = self._get_gate_count()
+        #     self.current_cost = self._get_average_cost()
+        #     self.current_degree = self._get_average_degree()
         
-        hamming_distance, stabilizers_save = self.get_hamming()
+        hamming_distance, matched, stabilizers_save = self.get_hamming()
         stabilizers_save = [str(ps) for ps in stabilizers_save]
 
-        rwd = self.reward_fn(hamming_distance)
+        if hamming_distance < self.min_hamming:
+            self.min_hamming = hamming_distance
+            print(self.original_stabilizers)
+            print(stabilizers_save)
+
+        rwd = self.reward_fn(hamming_distance, matched)
         self.rwd = rwd
 
-        if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up', 'F0_hamming']:
-            self.max_len = max(self.max_len, self.current_len)
-            self.max_cost = max(self.max_cost, self.current_cost)
+        # if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up', 'F0_hamming', 'F0_matched']:
+        #     self.max_len = max(self.max_len, self.current_len)
+        #     self.max_cost = max(self.max_cost, self.current_cost)
 
         # self.prev_energy = np.copy(energy)
         self.prev_hamming = np.copy(hamming_distance)
@@ -273,7 +464,7 @@ class CircuitEnv():
         done = int(energy_done or layers_done)
 
         self.previous_action = copy.deepcopy(action)
-        self.generators_save = stabilizers_save
+        self.generators_save = 0
 
         # if self.random_halt:
         #     if self.step_counter == self.halting_step:
@@ -321,7 +512,7 @@ class CircuitEnv():
         self.curriculum = copy.deepcopy(self.curriculum_dict[str(self.current_bond_distance)])
         self.done_threshold = copy.deepcopy(self.curriculum.get_current_threshold())
 
-        self.prev_hamming, _ = self.get_hamming(state)
+        self.prev_hamming, _, _ = self.get_hamming(state)
 
         state = state[:, :self.num_qubits+1]
         return state.reshape(-1).to(self.device)
@@ -369,10 +560,14 @@ class CircuitEnv():
         n = len(pauli_a)
 
         mod_hamming = 0
+        matched = 0
         # start from 1 to ignore sign
         for i in range(1, n):
             a = pauli_a[i]
             b = pauli_b[i]
+
+            if a == b and a != '_':
+                matched += 1
 
             if a == b:
                 mod_hamming += 0
@@ -381,10 +576,10 @@ class CircuitEnv():
             else:
                 mod_hamming += 1
 
-        return mod_hamming / self.xyz_div1 #if mod_hamming > 40 else 81
+        return mod_hamming / self.xyz_div1, matched
 
     
-    def get_hamming_distance(self, current_stabilizers: list[str]) -> int:
+    def get_hamming_distance(self, current_stabilizers: list[str]):
         """
         Computes the Hamming distance between the original stabilizers of the surface code 
         and the stabilizers of the current circuit.
@@ -392,12 +587,33 @@ class CircuitEnv():
         current_stabilizers = [str(ps) for ps in current_stabilizers]
 
         if len(current_stabilizers) == 0:
-            return 100.0
+            return self.max_hamming, 0.0
         
         if len(self.original_stabilizers) != len(current_stabilizers):
-            return 100.0
+            return self.max_hamming, 0.0
+        
+        hamming_sum = 0.0
+        matched_sum = 0.0
 
-        return float(sum([self.get_xyz_distance(x, y) for x, y in zip(self.original_stabilizers, current_stabilizers)]))
+        for x, y in zip(self.original_stabilizers, current_stabilizers):
+            h, m = self.get_xyz_distance(x, y)
+            hamming_sum += h
+            matched_sum += m
+        
+        hamming_sum = float(hamming_sum)
+        matched_sum = float(matched_sum)
+        return hamming_sum, matched_sum
+
+
+    def get_matched_count(self, current_stabilizers: list[str]) -> int:
+        matched_count = 0
+        current_stabilizers = [str(ps) for ps in current_stabilizers]
+
+        for s in current_stabilizers:
+            if s in self.original_stabilizers:
+                matched_count += 1
+        
+        return float(matched_count)
 
     
     def qulacs_to_stim(self, qulacs_circuit) -> stim.Circuit:
@@ -422,14 +638,19 @@ class CircuitEnv():
         noisy_circ = qulacs_inst.construct_ansatz(self.state)
 
         stim_circuit = self.qulacs_to_stim(qulacs_circuit=noisy_circ)
-        tableau = stim.Tableau.from_circuit(stim_circuit)
-        current_stabilizers = tableau.to_stabilizers()
 
-        hamming_distance = self.get_hamming_distance(current_stabilizers)
+        # tableau = stim.Tableau.from_circuit(stim_circuit)
+        # current_stabilizers = tableau.to_stabilizers()
 
+        s = stim.TableauSimulator()
+        s.do_circuit(stim_circuit)
+        current_canonical_stabilizers = s.canonical_stabilizers()
+
+        hamming_distance, matched = self.get_hamming_distance(current_canonical_stabilizers)
         print(hamming_distance)
 
-        return hamming_distance, current_stabilizers
+        return hamming_distance, matched, current_canonical_stabilizers
+
     
     def _get_average_cost(self) -> float:
         """
@@ -482,7 +703,7 @@ class CircuitEnv():
         return len(n_circuit)
             
 
-    def reward_fn(self, energy):
+    def reward_fn(self, energy, matched=None):
         """
         This returns the reward value that the agent receives based on the current circuit
         and the initial values that the circuit had.
@@ -492,7 +713,16 @@ class CircuitEnv():
                     (self.energy/self.min_eig))
         
         elif self.fn_type == 'F0_hamming':
-            return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost), (1 / (energy)))
+            # energy = hamming_dstance
+            #return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost), (1 / (energy)))
+            return 1 / (energy + 1)
+            # return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost), energy)
+            # return pow((self.max_len / (self.current_len + 1)), (1 / energy + 1))
+            # return pow((1 / energy + 1), (self.max_len / (self.current_len + 1)))
+            # return pow(matched, (1 / (energy + 1)))
+            # return pow((1 / (energy + 1)), matched)
+            # return pow((1 / (energy + 1)), (1 / (energy + 1)) )
+            # return 5 / (energy + 1)
 
         
     def illegal_action_new(self):

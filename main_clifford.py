@@ -139,7 +139,7 @@ def one_episode(episode_no, env, agent, episodes):
         agent.saver.stats_file['train'][episode_no]['errors_noiseless'].append(env.error_noiseless)
         agent.saver.stats_file['train'][episode_no]['time'].append(time.time()-t0)
         agent.saver.stats_file['train'][episode_no]['reward'].append(env.rwd)
-        agent.saver.stats_file['train'][episode_no]['generators'].append(env.generators_save)
+        # agent.saver.stats_file['train'][episode_no]['generators'].append(env.generators_save)
 
         # agent.saver.stats_file['train'][episode_no]['nfev'].append(env.nfev)
 

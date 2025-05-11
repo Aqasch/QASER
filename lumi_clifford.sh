@@ -1,18 +1,20 @@
 #!/bin/bash
 #
-#SBATCH --job-name="testing"
-#SBATCH --partition=small
-#SBATCH --account project_462000520
-#SBATCH -o test_clifford.out
+#SBATCH --job-name="cliff"
+#SBATCH --partition=small-g
+#SBATCH --account project_462000921
+#SBATCH -o test_clifford_9995_d4/clifford_circuit_test_less_exp_d4_400_1_over_h.out
+#SBATCH --gpus=1
+#SBATCH --mem=10G
 #SBATCH --ntasks=1
-#SBATCH --mem-per-cpu=10G
-#SBATCH --time=00:05:00
-
+#SBATCH --cpus-per-task=32
+#SBATCH --time=24:00:00
 
 SCRIPTTORUN="
 cd /qhronos
-python3 main_clifford.py --seed 1 --config clifford_circuit_test --experiment_name \"finalize/\"
+python3 main_clifford.py --seed 1 --config clifford_circuit_test_less_exp_d4_400_steps --experiment_name \"finalize/\"
 "
 
 export EXEC="srun singularity exec -B $(pwd):/qhronos apptainer/images/qhronos.sif"
 $EXEC bash -c "$SCRIPTTORUN"
+echo $JOB_ID

@@ -233,17 +233,20 @@ def plot_performance_agent_clifford():
     axs[2].set_xlabel('Steps', fontsize=14)
 
     linestyle_list = ['-', '--']
-    nr_episodes = 1000
+    nr_episodes = 120
 
     label = "ERROR"
     
     err_lists = []
     cumerr_lists = []
 
-    for directory in ['clifford_circuit_test', 'clifford_circuit_test_less_exp', 'clifford_circuit_test_even_less_exp']:
+    for directory in [#'clifford_circuit_test', 
+                        'clifford_circuit_test_less_exp', 
+                    # 'clifford_circuit_test_even_less_exp'
+                    ]:
         data = np.load(f'results/finalize/{directory}/summary_{seed}.npy',allow_pickle=True)[()]
 
-        # nr_episodes = min(len(data['train'].keys()), nr_episodes)
+        nr_episodes = min(len(data['train'].keys()), nr_episodes)
         rwd_list = []
         done_list = []
         err_list = []
@@ -275,8 +278,8 @@ def plot_performance_agent_clifford():
         cumerr_lists.append(rwd_list)
     
     axs[0].plot(cumerr_lists[0], '.', label=label)
-    axs[1].plot(cumerr_lists[1], '.', label=label)
-    axs[2].plot(cumerr_lists[2], '.', label=label)
+    axs[1].plot(err_lists[0], '.', label=label)
+    # axs[2].plot(cumerr_lists[2], '.', label=label)
 
     axs[0].legend(fontsize=12)
 

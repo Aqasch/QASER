@@ -11,7 +11,7 @@
 #
 SCRIPTTORUN="
 cd /qhronos
-python3 utils.py
+python3 plot_data.py
 "
 
 export EXEC="srun singularity exec -B $(pwd):/qhronos apptainer/images/qhronos.sif"
