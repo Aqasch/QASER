@@ -2,7 +2,7 @@ import numpy as np
 from itertools import product, accumulate
 # from qiskit import QuantumCircuit
 import matplotlib.pyplot as plt
-import cirq
+import stim
 
 
 def get_real_min_energy(fake_min_energy, mol_data_file):
@@ -46,22 +46,6 @@ def make_circuit_qiskit(action, qubits, circuit):
         # elif rot_axis == 3:
         #     circuit.rz(0, rot_qubit)
         circuit.h(rot_qubit)
-    return circuit, n_cx, n_rot
-
-
-def make_circuit_cirq(action, qubits, circuit, cirq_qubits):
-    n_cx = 0
-    n_rot = 0
-    ctrl = action[0]
-    targ = (action[0] + action[1]) % qubits
-    rot_qubit = action[2]
-    rot_axis = action[3]
-    if ctrl < qubits:
-        n_cx += 1
-        circuit.append(cirq.CX.on(cirq_qubits[ctrl], cirq_qubits[targ]))
-    if rot_qubit < qubits:
-        n_rot += 1
-        circuit.append(cirq.H.on(cirq_qubits[rot_qubit]))
     return circuit, n_cx, n_rot
 
 if __name__ == "__main__":
@@ -128,13 +112,13 @@ if __name__ == "__main__":
         plt.semilogy(done_list, markersize = 4)
         # plt.plot(cumulative_rewards, label = 'cumulative reward')
 
+        # succ_ep = np.argmin(err_list)
+        # err_1125 = np.argmin(data['train'][1125]['errors'])
+        # print(data['train'][1125]['errors'][:err_1125+1])
+
         succ_ep = np.argmin(err_list)
-        err_1125 = np.argmin(data['train'][1125]['errors'])
-        print(data['train'][1125]['errors'][:err_1125+1])
+        print('SUCC_EP: ', succ_ep, np.min(err_list))
 
-
-
-        print('SUCC_EP: ', succ_ep, min(err_list))
 
         sum_time = 0
         for ep in range(succ_ep):
@@ -143,12 +127,11 @@ if __name__ == "__main__":
 
         actions = data['train'][succ_ep]['actions']
 
-        circuit = cirq.Circuit()
-        cirq_qubits = [cirq.NamedQubit(str(s)) for s in range(n_qub)]
+        circuit = stim.Circuit()
         n_cx = 0
         n_rot = 0
 
-        for a in actions[:err_1125+1]:
+        for a in actions:
             action = dictionary_of_actions(n_qub)[a]
             ctrl = action[0]
             targ = (action[0] + action[1]) % n_qub
@@ -157,17 +140,15 @@ if __name__ == "__main__":
 
             if ctrl < n_qub:
                 n_cx += 1
-                circuit.append([cirq.CX(cirq_qubits[ctrl], cirq_qubits[targ])])
+                circuit.append("CX", [ctrl, targ])
             if rot_qubit < n_qub:
                 n_rot += 1
-                circuit.append([cirq.H(cirq_qubits[rot_qubit])])
+                circuit.append("H", [rot_qubit])
 
         print(n_cx)
         print(n_rot)
         print(circuit)
-        
-        print(cirq.contrib.quirk.circuit_to_quirk_url(circuit))
-
+    
         # print(seed, directory, np.min(err_list), np.argmin(err_list), gate_info['cx'], final_circuit.depth(), sum(cumulative_nfevs), sum(gate_info.values()), sum_time)
         # plt.legend()
         # plt.savefig('rwd_plot_done_h20_semilog.png', dpi=300)

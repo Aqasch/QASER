@@ -184,7 +184,6 @@ def get_d4_stabilizers():
     ]
 
     template = "_" * 16
-    # print(stab)
 
     stabilizers = []
     for stabi in xx:
@@ -199,7 +198,6 @@ def get_d4_stabilizers():
             stab = stab[:pos] + "Z" + stab[pos + 1 :]
         stabilizers.append(stab)
 
-    # print(stabilizers)
     return [stim.PauliString(stab) for stab in stabilizers]
 
 
@@ -211,34 +209,10 @@ class CircuitEnv():
 
         self.xyz_val1 = float(conf['env']['xyz_val1'])
         self.xyz_div1 = float(conf['env']['xyz_div1'])
-
-        # self.random_halt = int(conf['env']['rand_halt'])
         
         self.n_shots =   conf['env']['n_shots'] 
-        # noise_models = ['depolarizing', 'two_depolarizing', 'amplitude_damping']
-        # noise_values = conf['env']['noise_values'] 
-        
-        # self.mol = conf['problem']['ham_type']
-
-        # if noise_values !=0:
-        #     indx = conf['env']['noise_values'].index(',')
-        #     self.noise_values = [float(noise_values[1:indx]), float(noise_values[indx+1:-1])]
-        # else:
-        #     self.noise_values = []
-
-        # self.noise_models = noise_models[0:len(self.noise_values)]
-        
-        # if len(self.noise_models) > 0:
-        #     self.phys_noise = True
-        # else:
-        #     self.phys_noise = False
-
-        # self.err_mitig = conf['env']['err_mitig']
-        
-        # self.ham_mapping = conf['problem']['mapping']
+      
         self.geometry = conf['problem']['geometry'].replace(" ", "_")
-
-        # self.fake_min_energy = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else None
         
         self.fn_type = conf['env']['fn_type']
         
@@ -247,37 +221,18 @@ class CircuitEnv():
         else:
             self.cnot_rwd_weight = 1.
         
-        # self.noise_flag = True
-        # self.state_with_angles = conf['agent']['angles']
         self.current_number_of_cnots = 0
         
         self.curriculum_dict = {}
-
-        # __ham = np.load(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
-        # print(f"mol_data/{self.mol}_{self.num_qubits}q_geom_{self.geometry}_{self.ham_mapping}.npz")
-        
-        
-        # _, _, eigvals, energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
-
-        # min_eig = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else min(eigvals) + energy_shift
-        
-        # self.hamiltonian, self.weights, eigvals, self.energy_shift = __ham['hamiltonian'], __ham['weights'],__ham['eigvals'], __ham['energy_shift']
-
-        # self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
-        # self.max_eig = max(eigvals)+self.energy_shift
 
         self.min_eig = 1.0
         self.curriculum_dict[self.geometry[-3:]] = curricula.__dict__[conf['env']['curriculum_type']](conf['env'], target_energy=self.min_eig)
      
         self.device = device
         
-        # self.ket = QuantumState(self.num_qubits)
-
         self.done_threshold = conf['env']['accept_err']
-        # self.max_len = self.num_layers
         self.max_len = 10000
 
-        
         self.max_cost = 0
         self.CNOT_WEIGHT = 0
         self.H_WEIGHT = 0
@@ -285,7 +240,7 @@ class CircuitEnv():
         self.current_cost = 0
         self.current_degree = 0
 
-        original_stabilizers = get_d3_stabilizers()
+        original_stabilizers = get_d5_stabilizers()
         print(original_stabilizers)
 
         tbl = stim.Tableau.from_stabilizers(original_stabilizers)
@@ -297,12 +252,20 @@ class CircuitEnv():
         self.original_stabilizers = [str(ps) for ps in s.canonical_stabilizers()]
 
         self.max_hamming = float(sum([len(s) for s in self.original_stabilizers]))
+        self.min_hamming = 1000000.0
 
-        print('MAX HAMMING: ', self.max_hamming)
+        print('MAX HAMMING computed in constructor: ', self.max_hamming)
+
+        """
+        Used for the reward function
+        """
+        max_hamming_int = int(self.max_hamming)
+        param_ctr_idx = max_hamming_int // 2
+        distance_arr = np.arange(0, max_hamming_int, 1) / max_hamming_int
+        self.param_center = distance_arr[param_ctr_idx]
+        self.param_sigma = np.std(distance_arr)
 
         print(self.original_stabilizers)
-
-        self.min_hamming = 1000000.0
 
         if self.fn_type in ['F0_energy_depth_up']:
             self.kickstart_depth = conf['env']['kickstart_depth']
@@ -313,53 +276,21 @@ class CircuitEnv():
             self.H_WEIGHT = float(conf['env']['h_weight'])
 
         self.state_size = self.num_layers*self.num_qubits*(self.num_qubits+1)
-        print('STATE: ', self.state_size)
-        # exit()
 
         self.step_counter = -1
         self.prev_energy = 1
         self.prev_hamming = 100
         self.moments = [0]*self.num_qubits
         self.illegal_actions = [[]]*self.num_qubits
-        # self.energy = 0
 
         self.action_size = (self.num_qubits*(self.num_qubits))
         self.previous_action = [0, 0, 0, 0]
  
-        # if 'non_local_opt' in conf.keys():
-        #     self.global_iters = conf['non_local_opt']['global_iters']
-        #     self.optim_method = conf['non_local_opt']["method"]
-        #     self.optim_alg = conf['non_local_opt']['optim_alg']
-            
-
-        #     if 'a' in conf['non_local_opt'].keys():
-        #         self.options = {'a': conf['non_local_opt']["a"], 'alpha': conf['non_local_opt']["alpha"],
-        #                     'c': conf['non_local_opt']["c"], 'gamma': conf['non_local_opt']["gamma"],
-        #                     'beta_1': conf['non_local_opt']["beta_1"],
-        #                     'beta_2': conf['non_local_opt']["beta_2"]}
-
-        #     if 'lamda' in conf['non_local_opt'].keys():
-        #         self.options['lamda'] = conf['non_local_opt']["lamda"]
-
-        #     if 'maxfev' in conf['non_local_opt'].keys():
-        #         self.maxfev = {}
-        #         self.maxfev['maxfev'] = int(conf['non_local_opt']["maxfev"])
-
-        #     if 'maxfev1' in conf['non_local_opt'].keys():
-        #         self.maxfevs = {}
-        #         self.maxfevs['maxfev1'] = int( conf['non_local_opt']["maxfev1"] )
-        #         self.maxfevs['maxfev2'] = int( conf['non_local_opt']["maxfev2"] )
-        #         self.maxfevs['maxfev3'] = int( conf['non_local_opt']["maxfev3"] )
-                
-        # else:
-        #     self.global_iters = 0
-        #     self.optim_method = None
     
     def get_cirq_circuit(self):
         circuit = self.make_circuit()
         total_gate_count = circuit.get_gate_count()
         
-        # create cirq quantum circuit
         cirq_circuit = cirq.Circuit()
         cirq_qubits = [cirq.NamedQubit(str(q)) for q in range(self.num_qubits)]
 
@@ -375,8 +306,6 @@ class CircuitEnv():
                 tgt_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
                 cirq_circuit.append(cirq.CNOT(ctrl_qubit, tgt_qubit))
         
-        # print(cirq_circuit)
-
         return cirq_circuit
         
     def step(self, action, train_flag = True) :
@@ -434,25 +363,24 @@ class CircuitEnv():
         #     self.current_cost = self._get_average_cost()
         #     self.current_degree = self._get_average_degree()
         
-        hamming_distance, matched, stabilizers_save = self.get_hamming()
+        hamming_distance, matched, stabilizers_save, total_gate_count, stim_circuit = self.get_hamming()
         stabilizers_save = [str(ps) for ps in stabilizers_save]
 
         if hamming_distance < self.min_hamming:
             self.min_hamming = hamming_distance
             print(self.original_stabilizers)
             print(stabilizers_save)
+            print('MATCHED: ', matched)
 
-        rwd = self.reward_fn(hamming_distance, matched)
+        rwd = self.reward_fn(hamming_distance, matched, total_gate_count)
         self.rwd = rwd
 
         # if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up', 'F0_hamming', 'F0_matched']:
         #     self.max_len = max(self.max_len, self.current_len)
         #     self.max_cost = max(self.max_cost, self.current_cost)
 
-        # self.prev_energy = np.copy(energy)
         self.prev_hamming = np.copy(hamming_distance)
 
-        # TODO Akash what do we do about this?
         self.error = hamming_distance
         self.error_noiseless = self.error
 
@@ -460,23 +388,16 @@ class CircuitEnv():
 
         layers_done = self.step_counter == (self.num_layers - 1)
 
-        # TODO Akash what do we do about this?
         done = int(energy_done or layers_done)
 
         self.previous_action = copy.deepcopy(action)
         self.generators_save = 0
 
-        # if self.random_halt:
-        #     if self.step_counter == self.halting_step:
-        #         done = 1
         if done:
             self.curriculum.update_threshold(energy_done=energy_done)
             self.done_threshold = self.curriculum.get_current_threshold()
             self.curriculum_dict[str(self.current_bond_distance)] = copy.deepcopy(self.curriculum)
         
-        # if self.state_with_angles:
-        #     return next_state.view(-1).to(self.device), torch.tensor(rwd, dtype=torch.float32, device=self.device), done
-        # else:
         next_state = next_state[:, :self.num_qubits+1]
         return next_state.reshape(-1).to(self.device), torch.tensor(rwd, dtype=torch.float32, device=self.device), done
 
@@ -495,10 +416,6 @@ class CircuitEnv():
         state = torch.zeros((self.num_layers, self.num_qubits+1, self.num_qubits))
         self.state = state
         
-        # if self.random_halt:
-        #     statistics_generated = np.clip(np.random.negative_binomial(n=70,p=0.573, size=1),25,70)[0]
-        #     self.halting_step = statistics_generated
-        
         self.current_number_of_cnots = 0
         self.current_action = [self.num_qubits]*4
         self.illegal_actions = [[]]*self.num_qubits
@@ -512,7 +429,7 @@ class CircuitEnv():
         self.curriculum = copy.deepcopy(self.curriculum_dict[str(self.current_bond_distance)])
         self.done_threshold = copy.deepcopy(self.curriculum.get_current_threshold())
 
-        self.prev_hamming, _, _ = self.get_hamming(state)
+        self.prev_hamming, _, _, _, _ = self.get_hamming(state)
 
         state = state[:, :self.num_qubits+1]
         return state.reshape(-1).to(self.device)
@@ -607,10 +524,11 @@ class CircuitEnv():
 
     def get_matched_count(self, current_stabilizers: list[str]) -> int:
         matched_count = 0
-        current_stabilizers = [str(ps) for ps in current_stabilizers]
+        current_stabilizers = [str(ps)[1:] for ps in current_stabilizers]
+        original_stabilizers = [str(ps)[1:] for ps in self.original_stabilizers]
 
         for s in current_stabilizers:
-            if s in self.original_stabilizers:
+            if s in original_stabilizers:
                 matched_count += 1
         
         return float(matched_count)
@@ -618,6 +536,7 @@ class CircuitEnv():
     
     def qulacs_to_stim(self, qulacs_circuit) -> stim.Circuit:
         stim_circuit = stim.Circuit()
+
         total_gate_count = qulacs_circuit.get_gate_count()
 
         for i in range(total_gate_count):
@@ -629,7 +548,8 @@ class CircuitEnv():
             else:
                 stim_circuit.append_operation("CX", [the_gate.get_control_index_list()[0], 
                                               the_gate.get_target_index_list()[0]])
-        return stim_circuit
+        
+        return stim_circuit, total_gate_count
     
 
     def get_hamming(self, thetas=None):
@@ -637,10 +557,7 @@ class CircuitEnv():
         qulacs_inst = vc.Parametric_Circuit(n_qubits = self.num_qubits)
         noisy_circ = qulacs_inst.construct_ansatz(self.state)
 
-        stim_circuit = self.qulacs_to_stim(qulacs_circuit=noisy_circ)
-
-        # tableau = stim.Tableau.from_circuit(stim_circuit)
-        # current_stabilizers = tableau.to_stabilizers()
+        stim_circuit, total_gate_count = self.qulacs_to_stim(qulacs_circuit=noisy_circ)
 
         s = stim.TableauSimulator()
         s.do_circuit(stim_circuit)
@@ -649,7 +566,13 @@ class CircuitEnv():
         hamming_distance, matched = self.get_hamming_distance(current_canonical_stabilizers)
         print(hamming_distance)
 
-        return hamming_distance, matched, current_canonical_stabilizers
+        if hamming_distance == 0.0:
+            print(stim_circuit)
+            print(current_canonical_stabilizers)
+        
+        matched = self.get_matched_count(current_canonical_stabilizers)
+
+        return hamming_distance, matched, current_canonical_stabilizers, total_gate_count, stim_circuit
 
     
     def _get_average_cost(self) -> float:
@@ -703,28 +626,25 @@ class CircuitEnv():
         return len(n_circuit)
             
 
-    def reward_fn(self, energy, matched=None):
+    def reward_fn(self, hamming_distance, matched=None, total_gate_count=None):
         """
         This returns the reward value that the agent receives based on the current circuit
         and the initial values that the circuit had.
         """
-        if self.fn_type == 'F0_energy_untweaked':
-            return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost),
-                    (self.energy/self.min_eig))
-        
-        elif self.fn_type == 'F0_hamming':
-            # energy = hamming_dstance
-            #return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost), (1 / (energy)))
-            return 1 / (energy + 1)
-            # return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost), energy)
-            # return pow((self.max_len / (self.current_len + 1)), (1 / energy + 1))
-            # return pow((1 / energy + 1), (self.max_len / (self.current_len + 1)))
-            # return pow(matched, (1 / (energy + 1)))
-            # return pow((1 / (energy + 1)), matched)
-            # return pow((1 / (energy + 1)), (1 / (energy + 1)) )
-            # return 5 / (energy + 1)
+        if self.fn_type == 'F0_hamming':
+            sham = hamming_distance / self.max_hamming
+            e = np.exp((self.param_center - sham) ** 2 / 2 * (self.param_sigma ** 2))
 
-        
+            if sham > self.param_center:
+                e = 1 - e
+            else:
+                e = e - 1
+
+            return 100 * e
+            # return np.exp(-2 * hamming_distance)
+            # return -hamming_distance
+
+
     def illegal_action_new(self):
         action = self.current_action
         illegal_action = self.illegal_actions

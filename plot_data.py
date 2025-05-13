@@ -224,25 +224,25 @@ def plot_performance_agent_clifford():
     axs[1].grid(True, linestyle='--', zorder=0, alpha=0.7)
     axs[2].grid(True, linestyle='--', zorder=0, alpha=0.7)
 
-    axs[0].set_ylabel('Error threshold 0.99995', fontsize=14)
-    axs[1].set_ylabel('Error threshold 0.9995', fontsize=14)
-    axs[2].set_ylabel('Error threshold 0.995', fontsize=14)
+    axs[0].set_ylabel('clifford_circuit_test_less_exp_d3_working', fontsize=14)
+    axs[1].set_ylabel('clifford_circuit_test_less_exp_d3_no_sign', fontsize=14)
+    axs[2].set_ylabel('clifford_circuit_test_less_exp_d3', fontsize=14)
 
     axs[0].set_xlabel('Steps', fontsize=14)
     axs[1].set_xlabel('Steps', fontsize=14)
     axs[2].set_xlabel('Steps', fontsize=14)
 
     linestyle_list = ['-', '--']
-    nr_episodes = 120
+    nr_episodes = 2000
 
     label = "ERROR"
     
     err_lists = []
     cumerr_lists = []
 
-    for directory in [#'clifford_circuit_test', 
-                        'clifford_circuit_test_less_exp', 
-                    # 'clifford_circuit_test_even_less_exp'
+    for directory in ['clifford_circuit_test_less_exp_d3_working', 
+                      'clifford_circuit_test_less_exp_d3_no_sign', 
+                      'clifford_circuit_test_less_exp_d3'
                     ]:
         data = np.load(f'results/finalize/{directory}/summary_{seed}.npy',allow_pickle=True)[()]
 
@@ -260,7 +260,6 @@ def plot_performance_agent_clifford():
 
             if directory == 'clifford_circuit_test_less_exp':
                 stabilizer =  data['train'][ep]['generators'][-1]
-                print(stabilizer, err[-1])
 
             cumulative_rwd_per_ep = sum(data['train'][ep]['reward'])
             cumulative_rwd_per_ep_last = data['train'][ep]['reward'][-1]
@@ -277,9 +276,9 @@ def plot_performance_agent_clifford():
         err_lists.append(err_list)
         cumerr_lists.append(rwd_list)
     
-    axs[0].plot(cumerr_lists[0], '.', label=label)
-    axs[1].plot(err_lists[0], '.', label=label)
-    # axs[2].plot(cumerr_lists[2], '.', label=label)
+    axs[0].plot(err_lists[0], '.', label=label)
+    axs[1].plot(err_lists[1], '.', label=label)
+    axs[2].plot(err_lists[2], '.', label=label)
 
     axs[0].legend(fontsize=12)
 
@@ -289,9 +288,8 @@ def plot_performance_agent_clifford():
     # axs[1].tick_params(axis='both', which='minor', labelsize=14)
 
     plt.tight_layout()
-    plt.savefig(f'agent_performance_{directory}_{seed}_reward.pdf', dpi=300)
-    plt.savefig(f'agent_performance_{directory}_{seed}_reward.png', dpi=300)
+    plt.savefig(f'agent_performance_reward_comparison.pdf', dpi=300)
+    plt.savefig(f'agent_performance_reward_comparison.png', dpi=300)
 
 if __name__ == "__main__":
-    # plot_performance_agent()
     plot_performance_agent_clifford()
