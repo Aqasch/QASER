@@ -233,7 +233,7 @@ def get_five_qubit_code():
         stim.PauliString("X_XZZ"),
         stim.PauliString("ZX_XZ"),
         stim.PauliString("ZZZZZ")
-    ]
+]
 
 
 class CircuitEnv():
@@ -310,7 +310,7 @@ class CircuitEnv():
             self.CNOT_WEIGHT = float(conf['env']['cnot_weight'])
             self.H_WEIGHT = float(conf['env']['h_weight'])
 
-        self.state_size = self.num_layers*self.num_qubits*(self.num_qubits+1)
+        self.state_size = self.num_layers*self.num_qubits*(2*self.num_qubits+1)
 
         self.step_counter = -1
         self.prev_energy = 1
@@ -318,7 +318,9 @@ class CircuitEnv():
         self.moments = [0]*self.num_qubits
         self.illegal_actions = [[]]*self.num_qubits
 
-        self.action_size = (self.num_qubits*(self.num_qubits))
+        # self.action_size = (self.num_qubits*(self.num_qubits))
+        self.action_size = len(dictionary_of_hcxcz_actions(self.num_qubits).keys())
+
         self.previous_action = [0, 0, 0, 0]
  
     
@@ -361,10 +363,15 @@ class CircuitEnv():
         When action[0] == num_qubits, then there is no CNOT gate.
         When action[2] == num_qubits, then there is no Rotation gate.
         """
+        print('ACTION:', action)
         
         ctrl = action[0]
         targ = (action[0] + action[1]) % self.num_qubits
-        rot_qubit = action[2]        
+
+        ctrlz = action[2]
+        targz = (action[2] + action[3]) % self.num_qubits
+
+        rot_qubit = action[4]        
         
         self.action = action
 
@@ -372,11 +379,16 @@ class CircuitEnv():
             gate_tensor = self.moments[ rot_qubit ]
         elif ctrl < self.num_qubits:
             gate_tensor = max( self.moments[ctrl], self.moments[targ] )
+        elif ctrlz < self.num_qubits:
+            gate_tensor = max( self.moments[ctrlz], self.moments[targz] )
 
         if ctrl < self.num_qubits:
             next_state[gate_tensor][targ][ctrl] = 1
+        elif ctrlz < self.num_qubits:
+            # SHIFT such that cx and cz do not overlap
+            next_state[gate_tensor][targz + self.num_qubits][ctrlz] = 1
         elif rot_qubit < self.num_qubits:
-            next_state[gate_tensor][self.num_qubits][rot_qubit] = 1
+            next_state[gate_tensor][2 * self.num_qubits][rot_qubit] = 1
 
         if rot_qubit < self.num_qubits:
             self.moments[ rot_qubit ] += 1
@@ -384,11 +396,16 @@ class CircuitEnv():
             max_of_two_moments = max( self.moments[ctrl], self.moments[targ] )
             self.moments[ctrl] = max_of_two_moments +1
             self.moments[targ] = max_of_two_moments +1
+        elif ctrlz < self.num_qubits:
+            max_of_two_moments = max( self.moments[ctrlz], self.moments[targz] )
+            self.moments[ctrlz] = max_of_two_moments +1
+            self.moments[targz] = max_of_two_moments +1
             
         self.current_action = action
-        self.illegal_action_new()
+        # self.illegal_action_new()
 
         self.state = next_state.clone()
+        print(self.state[:2])
 
         # self.current_circuit = self.get_cirq_circuit()        
 
@@ -433,7 +450,7 @@ class CircuitEnv():
             self.done_threshold = self.curriculum.get_current_threshold()
             self.curriculum_dict[str(self.current_bond_distance)] = copy.deepcopy(self.curriculum)
         
-        next_state = next_state[:, :self.num_qubits+1]
+        next_state = next_state[:, :2*self.num_qubits+1]
         return next_state.reshape(-1).to(self.device), torch.tensor(rwd, dtype=torch.float32, device=self.device), done
 
     def reset(self):
@@ -448,11 +465,11 @@ class CircuitEnv():
             append it in circuit creator)
         """
         
-        state = torch.zeros((self.num_layers, self.num_qubits+1, self.num_qubits))
+        state = torch.zeros((self.num_layers, 2 * self.num_qubits+1, self.num_qubits))
         self.state = state
         
         self.current_number_of_cnots = 0
-        self.current_action = [self.num_qubits]*4
+        self.current_action = [self.num_qubits]*6
         self.illegal_actions = [[]]*self.num_qubits
 
         self.make_circuit(state)
@@ -466,7 +483,7 @@ class CircuitEnv():
 
         self.prev_hamming, _, _, _, _ = self.get_hamming(state)
 
-        state = state[:, :self.num_qubits+1]
+        state = state[:, :2*self.num_qubits+1]
         return state.reshape(-1).to(self.device)
 
     def make_circuit(self, thetas=None):
@@ -489,16 +506,23 @@ class CircuitEnv():
         
         for i in range(self.num_layers):
             cnot_pos = np.where(state[i][0:self.num_qubits] == 1)
+            cz_pos = np.where(state[i][self.num_qubits: 2 * self.num_qubits] == 1)
+
             targ = cnot_pos[0]
             ctrl = cnot_pos[1]
+
+            targz = cz_pos[0]
+            ctrlz = cz_pos[1]
             
             if len(ctrl) != 0:
                 for r in range(len(ctrl)):
-                    # replace CNOT with CZ gate
                     stim_circuit.append_operation("CNOT", [ctrl[r], targ[r]])
-                    # stim_circuit.append_operation("CZ", [ctrl[r], targ[r]])
+            
+            if len(ctrlz) != 0:
+                for r in range(len(ctrlz)):
+                    stim_circuit.append_operation("CZ", [ctrlz[r], targz[r]])
 
-            rot_pos = np.where(state[i][self.num_qubits: self.num_qubits+1] == 1)
+            rot_pos = np.where(state[i][2 * self.num_qubits: 2 * self.num_qubits+1] == 1)
             rot_direction_list, rot_qubit_list = rot_pos[0], rot_pos[1]
             
             if len(rot_qubit_list) != 0:
@@ -509,6 +533,7 @@ class CircuitEnv():
                     else:
                         print(f'rot-axis = {r} is in invalid')                        
                         assert r >2
+        print(stim_circuit)
         return stim_circuit
     
     def get_xyz_distance(self, pauli_a: str, pauli_b: str):
@@ -674,10 +699,6 @@ class CircuitEnv():
         and the initial values that the circuit had.
         """
         if self.fn_type == 'F0_hamming':
-            
-            if hamming_distance < 50.0:
-                return 1000.0
-
             sham = hamming_distance / self.max_hamming
             e = np.exp((self.param_center - sham) ** 2 / 2 * (self.param_sigma ** 2))
 
@@ -695,7 +716,7 @@ class CircuitEnv():
         action = self.current_action
         illegal_action = self.illegal_actions
         ctrl, targ = action[0], (action[0] + action[1]) % self.num_qubits
-        rot_qubit, rot_axis = action[2], action[3]
+        rot_qubit, rot_axis = action[4], action[5]
 
         if ctrl < self.num_qubits:
             are_you_empty = sum([sum(l) for l in illegal_action])
@@ -761,14 +782,14 @@ class CircuitEnv():
                         
                         if ill_ac[0] == self.num_qubits:
                             
-                            if rot_qubit == ill_ac[2] and rot_axis != ill_ac[3]:
+                            if rot_qubit == ill_ac[4] and rot_axis != ill_ac[5]:
                                 illegal_action[ill_ac_no] = []
                                 for i in range(1, self.num_qubits):
                                     if len(illegal_action[i]) == 0:
                                         illegal_action[i] = action
                                         break
                             
-                            elif rot_qubit != ill_ac[2]:
+                            elif rot_qubit != ill_ac[4]:
                                 for i in range(1, self.num_qubits):
                                     if len(illegal_action[i]) == 0:
                                         illegal_action[i] = action
@@ -811,13 +832,12 @@ class CircuitEnv():
                 illegal_action[indx+1] = []
         
         illegal_action_decode = []
-        for key, contain in dictionary_of_clifford_actions(self.num_qubits).items():
+        for key, contain in dictionary_of_hcxcz_actions(self.num_qubits).items():
             for ill_action in illegal_action:
                 if ill_action == contain:
                     illegal_action_decode.append(key)
         self.illegal_actions = illegal_action
         return illegal_action_decode
-
 
 if __name__ == "__main__":
     pass

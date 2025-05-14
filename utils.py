@@ -104,6 +104,47 @@ def dictionary_of_clifford_actions(num_qubits):
     
     return dictionary
 
+def dictionary_of_hcxcz_actions(num_qubits):
+    """
+    Creates dictionary of actions for system which steers positions of gates,
+    and axes of rotations.
+    """
+    dictionary = dict()
+    i = 0
+         
+    for c, x in product(range(num_qubits),
+                        range(1, num_qubits)):
+        dictionary[i] =  [c, x, num_qubits, 0, num_qubits, 0]
+        i += 1
+    
+    for c, z in product(range(num_qubits),
+                        range(1, num_qubits)):
+        dictionary[i] =  [num_qubits, 0, c, z, num_qubits, 0]
+        i += 1
+   
+    """h  denotes rotation axis. 1, 2, 3 -->  X, Y, Z axes """
+    for r, h in product(range(num_qubits),
+                           range(1, 2)):
+        dictionary[i] = [num_qubits, 0, num_qubits, 0, r, h]
+        i += 1
+    
+    return dictionary
+
+def dictionary_of_cz_actions(num_qubits):
+    """
+    Creates dictionary of actions for system which steers positions of gates,
+    and axes of rotations.
+    """
+    dictionary = dict()
+    i = 0
+         
+    for c, x in product(range(num_qubits),
+                        range(1, num_qubits)):
+        dictionary[i] =  [c, x]
+        i += 1
+    
+    return dictionary
+
 
 def dict_of_actions_revert_q(num_qubits):
     """
@@ -144,6 +185,49 @@ def dict_of_actions_revert_q_clifford(num_qubits):
         dictionary[i] = [num_qubits, 0, r, h]
         i += 1
     return dictionary
+
+
+def dict_of_actions_revert_q_hcxcz(num_qubits):
+    """
+    Creates dictionary of actions for system which steers positions of gates,
+    and axes of rotations. Systems have reverted order to above dictionary of actions.
+    """
+    dictionary = dict()
+    i = 0
+         
+    for c, x in product(range(num_qubits-1,-1,-1),
+                        range(num_qubits-1,0,-1)):
+        dictionary[i] =  [c, x, num_qubits, 0, num_qubits, 0]
+        i += 1
+    
+    for c, z in product(range(num_qubits-1,-1,-1),
+                        range(num_qubits-1,0,-1)):
+        dictionary[i] =  [num_qubits, 0, c, z, num_qubits, 0]
+        i += 1
+   
+    """h  denotes rotation axis. 1, 2, 3 -->  X, Y, Z axes """
+    for r, h in product(range(num_qubits-1,-1,-1),
+                           range(1, 2)):
+        dictionary[i] = [num_qubits, 0, num_qubits, 0, r, h]
+        i += 1
+    return dictionary
+
+
+def dict_of_actions_revert_q_cz(num_qubits):
+    """
+    Creates dictionary of actions for system which steers positions of gates,
+    and axes of rotations. Systems have reverted order to above dictionary of actions.
+    """
+    dictionary = dict()
+    i = 0
+         
+    for c, x in product(range(num_qubits-1,-1,-1),
+                        range(num_qubits-1,0,-1)):
+        dictionary[i] =  [c, x]
+        i += 1
+   
+    return dictionary
+
 
 if __name__ == '__main__':
     # from dataclasses import dataclass

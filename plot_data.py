@@ -224,29 +224,30 @@ def plot_performance_agent_clifford():
     axs[1].grid(True, linestyle='--', zorder=0, alpha=0.7)
     axs[2].grid(True, linestyle='--', zorder=0, alpha=0.7)
 
-    axs[0].set_ylabel('clifford_circuit_test_less_exp_d3_working', fontsize=14)
-    axs[1].set_ylabel('clifford_circuit_test_less_exp_d3_no_sign', fontsize=14)
-    axs[2].set_ylabel('clifford_circuit_test_less_exp_d3', fontsize=14)
+    axs[0].set_ylabel('gaussian_original', fontsize=14)
+    axs[1].set_ylabel('gaussian_99995_5000_3000', fontsize=14)
+    axs[2].set_ylabel('gaussian_99995_1000_5000', fontsize=14)
 
     axs[0].set_xlabel('Steps', fontsize=14)
     axs[1].set_xlabel('Steps', fontsize=14)
     axs[2].set_xlabel('Steps', fontsize=14)
 
     linestyle_list = ['-', '--']
-    nr_episodes = 2000
 
     label = "ERROR"
     
     err_lists = []
     cumerr_lists = []
 
-    for directory in ['clifford_circuit_test_less_exp_d3_working', 
-                      'clifford_circuit_test_less_exp_d3_no_sign', 
-                      'clifford_circuit_test_less_exp_d3'
+    nr_episodes =1800
+
+    for directory in ['clifford_circuit_test_less_exp_d4_new_sigma', 
+                    #   'clifford_circuit_test_less_exp_d4_new_sigma_99995_5000_3000', 
+                    #   'clifford_circuit_test_less_exp_d4_new_sigma_99995_1000_5000'
                     ]:
         data = np.load(f'results/finalize/{directory}/summary_{seed}.npy',allow_pickle=True)[()]
 
-        nr_episodes = min(len(data['train'].keys()), nr_episodes)
+        # nr_episodes = min(len(data['train'].keys()), nr_episodes)
         rwd_list = []
         done_list = []
         err_list = []
@@ -277,8 +278,8 @@ def plot_performance_agent_clifford():
         cumerr_lists.append(rwd_list)
     
     axs[0].plot(err_lists[0], '.', label=label)
-    axs[1].plot(err_lists[1], '.', label=label)
-    axs[2].plot(err_lists[2], '.', label=label)
+    # axs[1].plot(err_lists[1], '.', label=label)
+    # axs[2].plot(err_lists[2], '.', label=label)
 
     axs[0].legend(fontsize=12)
 
