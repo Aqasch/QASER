@@ -213,6 +213,7 @@ def get_st_stabilizers():
     ]
 
 def get_random_graph_state():
+    # 17 CZ gates
     return [
             stim.PauliString("X_ZZ_Z_ZZ"),
             stim.PauliString("_X__Z__Z_"),
@@ -250,6 +251,12 @@ class CircuitEnv():
         self.geometry = conf['problem']['geometry'].replace(" ", "_")
         
         self.fn_type = conf['env']['fn_type']
+
+        if "boost" in conf['env'].keys():
+            self.boost = int(conf['env']['boost'])
+        else:
+            self.boost = 0
+        
         
         if "cnot_rwd_weight" in conf['env'].keys():
             self.cnot_rwd_weight = conf['env']['cnot_rwd_weight']
@@ -275,7 +282,7 @@ class CircuitEnv():
         self.current_cost = 0
         self.current_degree = 0
 
-        original_stabilizers = get_five_qubit_code()
+        original_stabilizers = get_d4_stabilizers()
         print(original_stabilizers)
 
         tbl = stim.Tableau.from_stabilizers(original_stabilizers)
@@ -362,9 +369,7 @@ class CircuitEnv():
         Position of rotation gate and its axis are described by action[2] and action[3].
         When action[0] == num_qubits, then there is no CNOT gate.
         When action[2] == num_qubits, then there is no Rotation gate.
-        """
-        print('ACTION:', action)
-        
+        """        
         ctrl = action[0]
         targ = (action[0] + action[1]) % self.num_qubits
 
@@ -405,7 +410,6 @@ class CircuitEnv():
         # self.illegal_action_new()
 
         self.state = next_state.clone()
-        print(self.state[:2])
 
         # self.current_circuit = self.get_cirq_circuit()        
 
@@ -533,7 +537,6 @@ class CircuitEnv():
                     else:
                         print(f'rot-axis = {r} is in invalid')                        
                         assert r >2
-        print(stim_circuit)
         return stim_circuit
     
     def get_xyz_distance(self, pauli_a: str, pauli_b: str):

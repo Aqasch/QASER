@@ -219,35 +219,38 @@ def plot_performance_agent_clifford():
     seed = 1
     directory = 'clifford_circuit_test'
 
-    fig, axs = plt.subplots(1, 3, figsize=(12, 5), sharey=False)
-    axs[0].grid(True, linestyle='--', zorder=0, alpha=0.7)
-    axs[1].grid(True, linestyle='--', zorder=0, alpha=0.7)
-    axs[2].grid(True, linestyle='--', zorder=0, alpha=0.7)
+    nr_rows = 2
+    nr_cols = 3
 
-    axs[0].set_ylabel('gaussian_original', fontsize=14)
-    axs[1].set_ylabel('gaussian_99995_5000_3000', fontsize=14)
-    axs[2].set_ylabel('gaussian_99995_1000_5000', fontsize=14)
+    dirs = [
+            'sc16_50_99995_1500_boost0_nstep',
+            'sc16_50_99995_1500_boost0_nstep',
+            'sc16_50_99995_1500_boost0_nstep',
+            'sc16_50_99995_1500_boost0_log_reward',
+            'sc16_50_99995_1500_boost0_log_reward',
+            'sc16_50_99995_1500_boost0_log_reward', 
+            # 'sc16_60_99995_1500_boost0',
+            # 'sc16_40_99995_1500_20k_boost0',
+            # 'sc16_45_99995_1000_20k_boost0',
+            # 'sc16_50_99995_1500_20k_boost0'
+           ]
 
-    axs[0].set_xlabel('Steps', fontsize=14)
-    axs[1].set_xlabel('Steps', fontsize=14)
-    axs[2].set_xlabel('Steps', fontsize=14)
+    fig, axs = plt.subplots(nr_rows, nr_cols, figsize=(12, 5), sharey=False)
 
     linestyle_list = ['-', '--']
-
-    label = "ERROR"
+    label = "hamming_distance"
     
     err_lists = []
     cumerr_lists = []
 
-    nr_episodes =1800
+    nr_episodes = 10000
 
-    for directory in ['clifford_circuit_test_less_exp_d4_new_sigma', 
-                    #   'clifford_circuit_test_less_exp_d4_new_sigma_99995_5000_3000', 
-                    #   'clifford_circuit_test_less_exp_d4_new_sigma_99995_1000_5000'
-                    ]:
+    seeds = [1, 2, 3, 1, 2, 3]
+    for i, directory in enumerate(dirs):
+        seed = seeds[i]
         data = np.load(f'results/finalize/{directory}/summary_{seed}.npy',allow_pickle=True)[()]
 
-        # nr_episodes = min(len(data['train'].keys()), nr_episodes)
+        nr_episodes = len(data['train'].keys())
         rwd_list = []
         done_list = []
         err_list = []
@@ -277,16 +280,24 @@ def plot_performance_agent_clifford():
         err_lists.append(err_list)
         cumerr_lists.append(rwd_list)
     
-    axs[0].plot(err_lists[0], '.', label=label)
-    # axs[1].plot(err_lists[1], '.', label=label)
-    # axs[2].plot(err_lists[2], '.', label=label)
+    for i in range(nr_rows):
+        for j in range(nr_cols):
+            # axs[i][j].set_ylim(0, 272.0)
+            axs[i][j].grid(True, linestyle='--', zorder=0, alpha=0.7)
+            axs[i][j].set_ylabel(dirs[i * nr_cols + j], fontsize=8)
 
-    axs[0].legend(fontsize=12)
+            axs[i][j].plot(err_lists[i * nr_cols + j], '.', label=label)
 
-    # axs[1].semilogy(cumulative_rewards, linestyle_list[i], label=label)
+            for label in axs[i][j].get_xticklabels():
+                label.set_fontsize(8)
+            
+            for label in axs[i][j].get_yticklabels():
+                label.set_fontsize(8)
 
-    # axs[0].tick_params(axis='both', which='minor', labelsize=14)
-    # axs[1].tick_params(axis='both', which='minor', labelsize=14)
+            if i == 1:
+                axs[i][j].set_xlabel('Steps', fontsize=8)
+
+    # axs[0][0].legend(fontsize=12)
 
     plt.tight_layout()
     plt.savefig(f'agent_performance_reward_comparison.pdf', dpi=300)

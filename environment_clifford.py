@@ -236,6 +236,32 @@ def get_five_qubit_code():
     ]
 
 
+def get_random_graph_state_21():
+    return [
+        stim.PauliString("XZ___________________"),
+        stim.PauliString("ZX_________ZZ________"),
+        stim.PauliString("__XZ_________________"),
+        stim.PauliString("__ZXZ__ZZ____________"),
+        stim.PauliString("___ZXZZ______________"),
+        stim.PauliString("____ZX_Z_Z___________"),
+        stim.PauliString("____Z_X_ZZ__Z_Z______"),
+        stim.PauliString("___Z_Z_X__Z__________"),
+        stim.PauliString("___Z__Z_X_Z____Z_____"),
+        stim.PauliString("_____ZZ__XZ_____Z____"),
+        stim.PauliString("_______ZZZX______Z___"),
+        stim.PauliString("_Z_________X_Z____Z__"),
+        stim.PauliString("_Z____Z_____XZ_______"),
+        stim.PauliString("___________ZZXZ_____Z"),
+        stim.PauliString("______Z______ZXZZ_Z__"),
+        stim.PauliString("________Z_____ZX_Z_Z_"),
+        stim.PauliString("_________Z____Z_XZ__Z"),
+        stim.PauliString("__________Z____ZZX___"),
+        stim.PauliString("___________Z__Z___XZ_"),
+        stim.PauliString("_______________Z__ZX_"),
+        stim.PauliString("_____________Z__Z___X")
+    ]
+
+
 class CircuitEnv():
 
     def __init__(self, conf, device):
@@ -245,11 +271,20 @@ class CircuitEnv():
         self.xyz_val1 = float(conf['env']['xyz_val1'])
         self.xyz_div1 = float(conf['env']['xyz_div1'])
         
+        self.fake_min_energy = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else None
+        min_eig = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else min(eigvals) + energy_shift
+        self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
+        
         self.n_shots =   conf['env']['n_shots'] 
       
         self.geometry = conf['problem']['geometry'].replace(" ", "_")
         
         self.fn_type = conf['env']['fn_type']
+
+        if "boost" in conf['env'].keys():
+            self.boost = int(conf['env']['boost'])
+        else:
+            self.boost = 0
         
         if "cnot_rwd_weight" in conf['env'].keys():
             self.cnot_rwd_weight = conf['env']['cnot_rwd_weight']
@@ -260,7 +295,6 @@ class CircuitEnv():
         
         self.curriculum_dict = {}
 
-        self.min_eig = 1.0
         self.curriculum_dict[self.geometry[-3:]] = curricula.__dict__[conf['env']['curriculum_type']](conf['env'], target_energy=self.min_eig)
      
         self.device = device
@@ -275,12 +309,11 @@ class CircuitEnv():
         self.current_cost = 0
         self.current_degree = 0
 
-        original_stabilizers = get_five_qubit_code()
+        original_stabilizers = get_d4_stabilizers()
         print(original_stabilizers)
 
         tbl = stim.Tableau.from_stabilizers(original_stabilizers)
         circ = tbl.to_circuit()
-
 
         s = stim.TableauSimulator()
         s.do_circuit(circ)
@@ -288,6 +321,7 @@ class CircuitEnv():
 
         self.max_hamming = float(sum([len(s) for s in self.original_stabilizers]))
         self.min_hamming = 1000000.0
+        self.random_layer = None
 
         print('MAX HAMMING computed in constructor: ', self.max_hamming)
 
@@ -416,12 +450,14 @@ class CircuitEnv():
 
         self.prev_hamming = np.copy(hamming_distance)
 
-        self.error = hamming_distance
-        self.error_noiseless = self.error
+        self.error = float(hamming_distance - self.min_eig)
+
+        print(f"hamming = {hamming_distance}, threshold={self.done_threshold}, error = {self.error}")
 
         energy_done = int(self.error <= self.done_threshold)
 
         layers_done = self.step_counter == (self.num_layers - 1)
+        # layers_done = self.step_counter == (self.random_layer - 1)
 
         done = int(energy_done or layers_done)
 
@@ -463,8 +499,20 @@ class CircuitEnv():
         self.current_bond_distance = self.geometry[-3:]
         self.curriculum = copy.deepcopy(self.curriculum_dict[str(self.current_bond_distance)])
         self.done_threshold = copy.deepcopy(self.curriculum.get_current_threshold())
+        self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
 
         self.prev_hamming, _, _, _, _ = self.get_hamming(state)
+
+        # # random halting
+        # if self.num_qubits == 16:
+        #     print("Applying random halting for d4")
+        #     generated_num_layers = np.random.negative_binomial(25, 0.33, size=1)[0]
+        #     print(generated_num_layers)
+        #     if generated_num_layers > 65:
+        #         generated_num_layers = 65
+        #     if generated_num_layers < 40:
+        #         generated_num_layers = 40
+        #     self.random_layer = generated_num_layers
 
         state = state[:, :self.num_qubits+1]
         return state.reshape(-1).to(self.device)
@@ -674,21 +722,22 @@ class CircuitEnv():
         and the initial values that the circuit had.
         """
         if self.fn_type == 'F0_hamming':
-            
-            if hamming_distance < 50.0:
-                return 1000.0
-
             sham = hamming_distance / self.max_hamming
-            e = np.exp((self.param_center - sham) ** 2 / 2 * (self.param_sigma ** 2))
+            e = np.exp((self.param_center - sham) ** 2 / 2* (self.param_sigma**2))
 
             if sham > self.param_center:
                 e = 1 - e
             else:
                 e = e - 1
+                
+            factor = 100
+            add = 0
+            boost = self.param_center / 2
+            if sham < boost:
+                # factor += (boost/sham)
+                add += self.boost
 
-            return 100 * e
-            # return np.exp(-2 * hamming_distance)
-            # return -hamming_distance
+            return add + factor * e
 
 
     def illegal_action_new(self):

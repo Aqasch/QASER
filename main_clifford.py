@@ -109,8 +109,6 @@ def one_episode(episode_no, env, agent, episodes):
     t0 = time.time()
     agent.saver.get_new_episode('train', episode_no)
     state = env.reset()
-    # agent.saver.stats_file['train'][episode_no]['bond_distance'] = env.current_bond_distance
-    # agent.saver.stats_file['train'][episode_no]['done_threshold'] = env.done_threshold
 
     state = modify_state(state, env)
     agent.policy_net.train()
@@ -176,8 +174,8 @@ def one_episode(episode_no, env, agent, episodes):
             #     })
             print('time:', time.time()-t0)
             if episode_no%20==0:
-                print("episode: {}/{}, score: {}, e: {:.2}, rwd: {} \n"
-                        .format(episode_no, episodes, itr, agent.epsilon, reward),flush=True)
+                print("episode: {}/{}, num_layers: {}, score: {}, e: {:.2}, rwd: {} \n"
+                        .format(episode_no, episodes, env.num_layers, itr, agent.epsilon, reward),flush=True)
             break 
         
         if len(agent.memory) > conf['agent']['batch_size']:
@@ -197,7 +195,6 @@ def train(agent, env, episodes, seed, output_path,threshold):
     """Training loop"""
     threshold_crossed = 0
     for e in range(episodes):
-        
         one_episode(e, env, agent, episodes)
         
         if e %50==0 and e > 0:

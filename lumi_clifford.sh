@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-#SBATCH --job-name="cliff"
+#SBATCH --job-name="CRL_sc16_50_99995_1500_boost0"
 #SBATCH --partition=small-g
 #SBATCH --account project_462000921
-#SBATCH -o test_clifford_steane/clifford_circuit_test_less_exp_5_qubit_code.out
+#SBATCH -o test_clifford/CRL_sc16_50_99995_1500_boost0.out
 #SBATCH --gpus=1
 #SBATCH --mem=10G
 #SBATCH --ntasks=1
@@ -12,7 +12,7 @@
 
 SCRIPTTORUN="
 cd /qhronos
-python3 main_clifford.py --seed 1 --config clifford_circuit_test_less_exp_5_qubit_code --experiment_name \"finalize/\"
+python3 main_clifford.py --seed 1 --config CRL_sc16_50_99995_1500_boost0 --experiment_name \"finalize/\"
 "
 
 export EXEC="srun singularity exec -B $(pwd):/qhronos apptainer/images/qhronos.sif"

@@ -213,6 +213,7 @@ def get_st_stabilizers():
     ]
 
 def get_random_graph_state():
+    # 17 CZ gates
     return [
             stim.PauliString("X_ZZ_Z_ZZ"),
             stim.PauliString("_X__Z__Z_"),
@@ -257,6 +258,11 @@ class CircuitEnv():
             self.cnot_rwd_weight = 1.
         
         self.current_number_of_cnots = 0
+
+        if "boost" in conf['env'].keys():
+            self.boost = int(conf['env']['boost'])
+        else:
+            self.boost = 0
         
         self.curriculum_dict = {}
 
@@ -275,7 +281,7 @@ class CircuitEnv():
         self.current_cost = 0
         self.current_degree = 0
 
-        original_stabilizers = get_five_qubit_code()
+        original_stabilizers = get_random_graph_state()
         print(original_stabilizers)
 
         tbl = stim.Tableau.from_stabilizers(original_stabilizers)
@@ -500,7 +506,6 @@ class CircuitEnv():
                     # stim_circuit.append_operation("CNOT", [ctrl[r], targ[r]])
                     stim_circuit.append_operation("CZ", [ctrl[r], targ[r]])
 
-        print(stim_circuit)
         return stim_circuit
     
     def get_xyz_distance(self, pauli_a: str, pauli_b: str):
@@ -671,10 +676,26 @@ class CircuitEnv():
             else:
                 e = e - 1
 
-            return 100 * e
+            # return 100 * e
             # return np.exp(-2 * hamming_distance)
             # return -hamming_distance
+            # sham = hamming_distance / self.max_hamming
+            # e = np.exp((self.param_center - sham) ** 2 / 2* (self.param_sigma**2))
 
+            # if sham > self.param_center:
+            #     e = 1 - e
+            # else:
+            #     e = e - 1
+
+            factor = 100
+            add = 0
+            boost = self.param_center / 2
+            if sham < boost:
+                # factor += (boost/sham)
+                add += self.boost
+
+            return add + factor * e
+            # return 1/hamming_distance
 
     def illegal_action_new(self):
         action = self.current_action
