@@ -64,46 +64,6 @@ def modify_state(state,env):
          
     return state
 
-
-def agent_test(env, agent, episode_no, seed, output_path,threshold):
-    """ Testing function of the trained agent. """    
-    agent.saver.get_new_episode('test', episode_no)
-    state = env.reset()
-    state = modify_state(state, env)
-    current_epsilon = copy.copy(agent.epsilon)
-    agent.policy_net.eval()
-
-    for t in range(env.num_layers + 1):
-        ill_action_from_env = env.illegal_action_new()
-        
-        agent.epsilon = 0
-        with torch.no_grad():
-            action, _ = agent.act(state, ill_action_from_env)
-            assert type(action) == int
-            agent.saver.stats_file['test'][episode_no]['actions'].append(action)
-        next_state, reward, done = env.step(agent.translate[action],train_flag=False)
-        next_state = modify_state(next_state, env)
-        state = next_state.clone()
-        assert type(env.error) == float 
-        agent.saver.stats_file['test'][episode_no]['errors'].append(env.error)
-        agent.saver.stats_file['test'][episode_no]['errors_noiseless'].append(env.error_noiseless)
-        agent.saver.stats_file['test'][episode_no]['opt_ang'].append(env.opt_ang_save)
-        
-        if done:
-            
-            agent.saver.stats_file['test'][episode_no]['done_threshold'] = env.done_threshold
-            # agent.saver.stats_file['test'][episode_no]['bond_distance'] = env.current_bond_distance
-            errors_current_bond = [val['errors'][-1] for val in agent.saver.stats_file['test'].values()
-                                   if val['done_threshold'] == env.done_threshold]
-            if len(errors_current_bond) > 0 and min(errors_current_bond) > env.error:
-                torch.save(agent.policy_net.state_dict(), f"{output_path}/thresh_{threshold}_{seed}_best_geo_{env.current_bond_distance}_model.pth")
-                torch.save(agent.optim.state_dict(), f"{output_path}/thresh_{threshold}_{seed}_best_geo_{env.current_bond_distance}_optim.pth")
-            agent.epsilon = current_epsilon
-            agent.saver.validate_stats(episode_no, 'test')
-            
-            return reward, t
-        
-
 def one_episode(episode_no, env, agent, episodes):
     """ Function preforming full trainig episode."""
     t0 = time.time()
@@ -137,41 +97,10 @@ def one_episode(episode_no, env, agent, episodes):
         agent.saver.stats_file['train'][episode_no]['errors_noiseless'].append(env.error_noiseless)
         agent.saver.stats_file['train'][episode_no]['time'].append(time.time()-t0)
         agent.saver.stats_file['train'][episode_no]['reward'].append(env.rwd)
-        # agent.saver.stats_file['train'][episode_no]['generators'].append(env.generators_save)
-
-        # agent.saver.stats_file['train'][episode_no]['nfev'].append(env.nfev)
-
-        # wandb.log(
-        # {"train_by_step/step_no": itr,
-        # "train_by_step/episode_no": episode_no,
-        # "train_by_step/errors": env.error,
-        # "train_by_step/errors_noiseless": env.error_noiseless,
-        # })
-
-        # if agent.memory_reset_switch:            
-        #    if env.error < agent.memory_reset_threshold:
-        #        agent.memory_reset_counter += 1
-        #    if agent.memory_reset_counter == agent.memory_reset_switch:
-        #        agent.memory.clean_memory()
-        #        agent.memory_reset_switch = False
-        #        agent.memory_reset_counter = False
                
   
         if done:
 
-            # wandb.log(
-            #     {"train_final/episode_len": itr,
-            #     "train_final/errors": env.error,
-            #     "train_final/errors_noiseless": env.error_noiseless,
-            #     "train_final/done_threshold": env.done_threshold,
-            #     "train_final/bond_distance": env.current_bond_distance,
-            #     "train_final/episode_no": episode_no,
-            #     "train_final/current_number_of_cnots": env.current_number_of_cnots,
-            #     "train_final/epsilon": agent.epsilon,
-            #     "train_final/return": sum([x*y for x,y in zip(rewards4return,[agent.gamma**i for i in range(1,len(rewards4return)+1)])]),
-            #     "train_final/rwd_sum": sum(rewards4return),
-
-            #     })
             print('time:', time.time()-t0)
             if episode_no%1==0:
                 print("episode: {}/{}, num_layers: {}, score: {}, e: {:.2}, rwd: {} \n"
@@ -191,10 +120,17 @@ def one_episode(episode_no, env, agent, episodes):
             
             
 
-def train(agent, env, episodes, seed, output_path,threshold):
+# def train(agent, env, episodes, seed, output_path,threshold):
+def train(agent, env, conf, episodes, seed, output_path, threshold):
     """Training loop"""
     threshold_crossed = 0
     for e in range(episodes):
+        """
+        THINK ABOUT IT!
+        """
+        # if e% env.update_init_ep == 0:
+        #     environment = CircuitEnv(conf, device=device)
+        #     agent = agents.__dict__[conf['agent']['agent_type']].__dict__[conf['agent']['agent_class']](conf, environment.action_size, environment.state_size, device)
         one_episode(e, env, agent, episodes)
         
         if e %10==0 and e > 0:
@@ -205,6 +141,20 @@ def train(agent, env, episodes, seed, output_path,threshold):
         if env.error <= 0.0016:
             threshold_crossed += 1
             np.save( f'threshold_crossed', threshold_crossed )
+        
+        """
+        RESETS THE EPSILON GREEDY POLICY EXPLORATION == 1 AFTER EACH `update_init_ep` episode.
+        """
+
+        if hasattr(env, "update_init_ep") and env.update_init_ep and (e % env.update_init_ep == 0) and (e != 0):
+            agent.epsilon = 1.0
+            print(f"Resetting epsilon to 1.0 at episode {e}", flush=True)
+
+            # FULL AGENT RESET
+            agent = agents.__dict__[conf['agent']['agent_type']].__dict__[conf['agent']['agent_class']](conf, env.action_size, env.state_size, agent.device)
+            agent.saver = Saver(f"{output_path}", seed)
+            print(f"Agent reinitialized at episode {e}", flush=True)
+            
 
 def get_args(argv):
     parser = argparse.ArgumentParser()
@@ -265,7 +215,7 @@ if __name__ == '__main__':
         if not conf['agent']['epsilon_restart']:
             agent.epsilon = agent.epsilon_min
 
-    train(agent, environment, conf['general']['episodes'], args.seed, f"{results_path}{args.experiment_name}{args.config}",conf['env']['accept_err'])
+    train(agent, environment, conf, conf['general']['episodes'], args.seed, f"{results_path}{args.experiment_name}{args.config}",conf['env']['accept_err'])
     agent.saver.save_file()
             
     torch.save(agent.policy_net.state_dict(), f"{results_path}{args.experiment_name}{args.config}/thresh_{conf['env']['accept_err']}_{args.seed}_model.pth")

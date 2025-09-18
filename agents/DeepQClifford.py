@@ -39,13 +39,13 @@ class DQNClifford(object):
         self.action_size = action_size
 
         self.state_size = state_size if self.with_angles else state_size #- self.num_layers#*(self.num_qubits+1)
-        print('STATE AGENT 1:', self.state_size)
+        print('STATE AGENT step 1:', self.state_size)
 
         self.state_size = self.state_size + 1 if conf['agent']['en_state'] else self.state_size
-        print('STATE AGENT 2:', self.state_size)
+        print('STATE AGENT step 2:', self.state_size)
 
         self.state_size = self.state_size + 1 if ("threshold_in_state" in conf['agent'].keys() and conf['agent']["threshold_in_state"]) else self.state_size
-        print('STATE AGENT 3:', self.state_size)
+        print('STATE AGENT step 3:', self.state_size)
 
         self.translate = dictionary_of_clifford_actions(self.num_qubits)
         self.rev_translate = dict_of_actions_revert_q_clifford(self.num_qubits)
@@ -56,7 +56,7 @@ class DQNClifford(object):
 
         self.gamma = torch.Tensor([np.round(np.power(self.final_gamma,1/self.num_layers),2)]).to(device)   
         self.memory = ReplayMemory(memory_size)
-        self.epsilon = 1.0  
+        self.epsilon = 1.0
 
         self.optim = torch.optim.Adam(self.policy_net.parameters(), lr=learning_rate)
         self.loss = torch.nn.SmoothL1Loss()

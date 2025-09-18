@@ -285,6 +285,8 @@ class CircuitEnv():
         
         self.fn_type = conf['env']['fn_type']
 
+        self.update_init_ep = int(conf['agent']['update_init_ep'])
+
         if "boost" in conf['env'].keys():
             self.boost = int(conf['env']['boost'])
         else:
@@ -305,6 +307,9 @@ class CircuitEnv():
         
         self.done_threshold = conf['env']['accept_err']
         self.max_len = 10000
+
+        self.good_rl_circuit = dict()
+        self.good_rl_circuit_gates = dict()
 
         self.max_cost = 0
         self.CNOT_WEIGHT = 0
@@ -329,7 +334,7 @@ class CircuitEnv():
                 stim.PauliString(stab) for stab in self.original_stabilizers
             ]).to_circuit()
 
-        self.left_circuit = self.get_stim_circuit_remove_random(remove_count=0)
+        self.left_circuit = self.original_stim_circuit
         
         self.max_hamming = float(sum([len(s) for s in self.original_stabilizers]))
         self.min_hamming = 1000000.0
@@ -366,79 +371,6 @@ class CircuitEnv():
 
         self.action_size = (self.num_qubits*(self.num_qubits))
         self.previous_action = [0, 0, 0, 0]
- 
-    
-    # def get_cirq_circuit(self):
-    #     circuit = self.make_circuit()
-    #     total_gate_count = circuit.get_gate_count()
-        
-    #     cirq_circuit = cirq.Circuit()
-    #     cirq_qubits = [cirq.NamedQubit(str(q)) for q in range(self.num_qubits)]
-
-    #     for i in range(total_gate_count):
-    #         the_gate = circuit.get_gate(i)
-    #         name_of_gate = the_gate.get_name()
-
-    #         if name_of_gate != 'CNOT':
-    #             cirq_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
-    #             cirq_circuit.append(cirq.H.on(cirq_qubit))
-    #         else:
-    #             ctrl_qubit = cirq_qubits[the_gate.get_control_index_list()[0]]
-    #             tgt_qubit = cirq_qubits[the_gate.get_target_index_list()[0]]
-    #             cirq_circuit.append(cirq.CNOT(ctrl_qubit, tgt_qubit))
-        
-    #     return cirq_circuit
-    
-    def pairwise(self, my_list):
-        it = iter(my_list)
-        for a in it:
-            b = next(it, None)
-            if b is not None:
-                yield [a, b] # this is basically for pairs of CX gates
-            else:
-                yield [a] # this is for Hadamard gates
-    
-    def get_stim_gate_count(self, circuit):
-        """
-        Assuming stim circuit made only out of Hadamards and CX gates.
-        """
-        gate_count = 0
-        for inst in circuit:
-            pairwise_targets = list(self.pairwise(inst.targets_copy()))
-            gate_count += len(pairwise_targets)
-        
-        return gate_count
-
-    def get_stim_circuit_remove_random(self, remove_count=None):
-        """
-        The remove count is basically the count of operations that we remove (from the back)
-        """
-
-        stim_circuit = self.left_circuit
-
-        total_gate_count = self.get_stim_gate_count(stim_circuit)
-
-        if remove_count is not None:
-            random_ids = random.sample(range(total_gate_count), remove_count)
-        else:
-            random_ids = random.sample(range(total_gate_count), self.remove_count)
-
-        current_id = 0
-        expanded = stim.Circuit()
-
-        for inst in stim_circuit:
-
-            pairwise_targets = list(self.pairwise(inst.targets_copy()))
-
-            for target_pair in pairwise_targets:
-
-                if current_id in random_ids:
-                    pass
-                else:
-                    expanded.append(inst.name, target_pair)
-                current_id += 1
-
-        return expanded
         
     def step(self, action, train_flag = True) :
         
@@ -500,20 +432,10 @@ class CircuitEnv():
 
         if hamming_distance <= self.min_hamming:
             self.min_hamming = hamming_distance
-            print(self.original_stabilizers)
-            print(stabilizers_save)
-            print('original stim circuit: ')
-            print(self.original_stim_circuit)
-            print('stim circuit found by agent: ')
-            print(stim_circuit)
             print('MATCHED: ', matched)
 
         rwd = self.reward_fn(hamming_distance, matched, total_gate_count)
         self.rwd = rwd
-
-        # if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up', 'F0_hamming', 'F0_matched']:
-        #     self.max_len = max(self.max_len, self.current_len)
-        #     self.max_cost = max(self.max_cost, self.current_cost)
 
         self.prev_hamming = np.copy(hamming_distance)
 
@@ -523,6 +445,16 @@ class CircuitEnv():
 
         layers_done = self.step_counter == (self.num_layers - 1)
         # layers_done = self.step_counter == (self.random_layer - 1)
+
+        
+
+        if hamming_distance == 0.0:
+            print('-------BEST OF RL-------')
+            print(self.make_circuit())
+            print('-------BEST OF RL-------')
+            stim_rl_circuit = self.left_circuit + self.make_circuit()
+            self.good_rl_circuit[self.ep_id] = stim_rl_circuit
+            self.good_rl_circuit_gates[self.ep_id] = self.get_stim_gate_count(stim_rl_circuit)
 
         done = int(energy_done or layers_done)
 
@@ -568,10 +500,15 @@ class CircuitEnv():
         
         self.error_noiseless = 0
         
-        if self.ep_id % 1000 == 0:
+        if self.ep_id % self.update_init_ep == 0:
             print('HERE')
+            print(self.left_circuit)
             self.left_circuit = self.get_stim_circuit_remove_random()
-
+            print('---------------')
+            print(self.left_circuit)
+            # exit()
+        # if self.ep_id == 2050:
+            # exit()
         self.ep_id += 1
 
         self.prev_hamming, _, _, _, _ = self.get_hamming(state)
@@ -590,6 +527,82 @@ class CircuitEnv():
 
         state = state[:, :self.num_qubits+1]
         return state.reshape(-1).to(self.device)
+
+
+    def pairwise(self, my_list):
+        it = iter(my_list)
+        for a in it:
+            b = next(it, None)
+            if b is not None:
+                yield [a, b] # this is basically for pairs of CX gates
+            else:
+                yield [a] # this is for Hadamard gates
+    
+    def get_stim_gate_count(self, circuit):
+        """
+        Assuming stim circuit made only out of Hadamards and CX gates.
+        """
+        gate_count = 0
+        for inst in circuit:
+            pairwise_targets = list(self.pairwise(inst.targets_copy()))
+            gate_count += len(pairwise_targets)
+        
+        return gate_count
+
+    def get_stim_circuit_remove_random(self, remove_count=None):
+        """
+        The remove count is basically the count of operations that we remove (randomly)
+        """
+        if self.ep_id == 0:
+            stim_circuit = self.original_stim_circuit
+        else:
+            # if len(list(self.good_rl_circuit_gates.keys())) !=0:
+                
+            min_key = min(self.good_rl_circuit_gates, key=self.good_rl_circuit_gates.get)
+            stim_circuit = self.good_rl_circuit[min_key]
+            print('----updated stim circuit-----')
+            print(stim_circuit)
+            s = stim.TableauSimulator()
+            s.do_circuit(stim_circuit)
+            current_canonical_stabilizers = s.canonical_stabilizers()
+            hamming_distance, matched = self.get_hamming_distance(current_canonical_stabilizers)
+            print(hamming_distance, 'hamming of updated stim circuit')
+            print('----updated stim circuit-----')
+            # else:
+            #     """
+            #     IF NO GOOD CIRCUIT FOUND START FROM THE PREVIOUS CIRCUIT AGAIN!
+            #     """
+            #     min_key = min(self.good_rl_circuit_gates, key=self.good_rl_circuit_gates.get)
+            #     stim_circuit = self.good_rl_circuit[min_key//2]
+        
+
+        total_gate_count = self.get_stim_gate_count(stim_circuit)
+
+        if remove_count is not None:
+            random_ids = random.sample(range(total_gate_count), remove_count)
+        else:
+            random_ids = random.sample(range(total_gate_count), self.remove_count)
+
+        current_id = 0
+        expanded = stim.Circuit()
+
+        for inst in stim_circuit:
+
+            pairwise_targets = list(self.pairwise(inst.targets_copy()))
+
+            for target_pair in pairwise_targets:
+
+                if current_id in random_ids:
+                    pass
+                else:
+                    expanded.append(inst.name, target_pair)
+                current_id += 1
+
+        print('---- two gate removed stim circuit ----')
+        print(expanded)
+        print('---- two gate removed stim circuit ----')
+
+        return expanded
 
     def make_circuit(self, thetas=None):
         """
@@ -717,8 +730,18 @@ class CircuitEnv():
 
     def get_hamming(self, thetas=None):
         stim_circuit = self.make_circuit(thetas)
+        # print('-------------wsjkhsdjhdf--------------')
+        # print(stim_circuit)
 
         stim_circuit = self.left_circuit + stim_circuit
+        # print('!!!!!!!!!!!!!!!!!!!!!!!!!')
+        # print(stim_circuit)
+        # print('-----------sjlkhhwieu----------------')
+
+        # if self.ep_id == 3:
+            # exit()
+
+
 
         total_gate_count = 0
 
@@ -727,7 +750,6 @@ class CircuitEnv():
         current_canonical_stabilizers = s.canonical_stabilizers()
 
         hamming_distance, matched = self.get_hamming_distance(current_canonical_stabilizers)
-        print(hamming_distance)
 
         if hamming_distance == 0.0:
             print(stim_circuit)

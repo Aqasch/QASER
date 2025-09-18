@@ -18,3 +18,5 @@ python3 main_warm_start_random.py --seed 1 --config clifford_circuit_test_less_e
 export EXEC="srun singularity exec -B $(pwd):/qhronos apptainer/images/qhronos.sif"
 echo $JOB_ID
 $EXEC bash -c "$SCRIPTTORUN"
+
+
