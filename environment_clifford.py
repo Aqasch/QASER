@@ -272,8 +272,9 @@ class CircuitEnv():
         self.xyz_div1 = float(conf['env']['xyz_div1'])
         
         self.fake_min_energy = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else None
-        min_eig = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else min(eigvals) + energy_shift
-        self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
+        # min_eig = conf['env']['fake_min_energy'] if "fake_min_energy" in conf['env'].keys() else min(eigvals) + energy_shift
+        # self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
+        self.min_eig = 0
         
         self.n_shots =   conf['env']['n_shots'] 
       
@@ -452,8 +453,6 @@ class CircuitEnv():
 
         self.error = float(hamming_distance - self.min_eig)
 
-        print(f"hamming = {hamming_distance}, threshold={self.done_threshold}, error = {self.error}")
-
         energy_done = int(self.error <= self.done_threshold)
 
         layers_done = self.step_counter == (self.num_layers - 1)
@@ -499,9 +498,10 @@ class CircuitEnv():
         self.current_bond_distance = self.geometry[-3:]
         self.curriculum = copy.deepcopy(self.curriculum_dict[str(self.current_bond_distance)])
         self.done_threshold = copy.deepcopy(self.curriculum.get_current_threshold())
-        self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
+        # self.min_eig = self.fake_min_energy if self.fake_min_energy is not None else min(eigvals) + self.energy_shift
 
         self.prev_hamming, _, _, _, _ = self.get_hamming(state)
+        self.error_noiseless = 0
 
         # # random halting
         # if self.num_qubits == 16:

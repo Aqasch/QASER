@@ -263,6 +263,54 @@ def get_random_graph_state_21():
     ]
 
 
+def get_small_tough_circuits():
+
+    circuit_1 = stim.Circuit()
+
+    # Add operations
+    circuit_1.append_operation("I", [0, 1, 2, 3, 4, 5, 6, 7, 8])
+    circuit_1.append_operation("H", [3])
+    circuit_1.append_operation("CNOT", [3, 2])
+    circuit_1.append_operation("CNOT", [3, 4])
+    circuit_1.append_operation("CNOT", [4, 3])
+    circuit_1.append_operation("H", [3])
+
+    circuit_2 = stim.Circuit()
+
+    # Add operations
+    circuit_2.append_operation("I", [0, 1, 2, 3, 4, 5, 6, 7, 8])
+    circuit_2.append_operation("H", [6])
+    circuit_2.append_operation("CNOT", [6, 5])
+    circuit_2.append_operation("CNOT", [6, 7])
+    circuit_2.append_operation("CNOT", [7, 6])
+    circuit_2.append_operation("H", [6])
+
+    circuit_3 = stim.Circuit()
+
+    # Add operations
+    circuit_3.append_operation("I", [0, 1, 2, 3, 4, 5, 6, 7, 8])
+    circuit_3.append_operation("H", [3])
+    circuit_3.append_operation("CNOT", [3, 2])
+    circuit_3.append_operation("CNOT", [3, 4])
+    circuit_3.append_operation("H", [3])
+
+    circuit_4 = stim.Circuit()
+
+    # Add operations
+    circuit_4.append_operation("I", [0, 1, 2, 3, 4, 5, 6, 7, 8])
+    circuit_4.append_operation("H", [6])
+    circuit_4.append_operation("CNOT", [6, 5])
+    circuit_4.append_operation("CNOT", [6, 7])
+    circuit_4.append_operation("H", [6])
+
+    # key, left_circuit, last_successful_left, circuit, right_circuit, 
+    return {1:{"left": circuit_1, "last_left": circuit_1, "right": stim.Circuit(), "last_right": stim.Circuit()}, 
+            2:{"left": circuit_2, "last_left": circuit_2, "right": stim.Circuit(), "last_right": stim.Circuit()}, 
+            3:{"left": circuit_3, "last_left": circuit_3, "right": stim.Circuit(), "last_right": stim.Circuit()},
+            4:{"left": circuit_4, "last_left": circuit_4, "right": stim.Circuit(), "last_right": stim.Circuit()}}
+
+
+
 class CircuitEnv():
 
     def __init__(self, conf, device):
@@ -320,28 +368,39 @@ class CircuitEnv():
 
         self.ep_id = 0
 
-        original_stabilizers = get_d4_stabilizers()
-        print(original_stabilizers)
+        code_stabilizers = get_d3_stabilizers()
+        print(code_stabilizers)
 
-        tbl = stim.Tableau.from_stabilizers(original_stabilizers)
+        tbl = stim.Tableau.from_stabilizers(code_stabilizers)
         circ = tbl.to_circuit()
 
         s = stim.TableauSimulator()
         s.do_circuit(circ)
 
-        self.original_stabilizers = [str(ps) for ps in s.canonical_stabilizers()]
-        self.original_stim_circuit = stim.Tableau.from_stabilizers([
-                stim.PauliString(stab) for stab in self.original_stabilizers
+        self.code_stabilizers = [str(ps) for ps in s.canonical_stabilizers()]
+        self.stim_generated_circuit = stim.Tableau.from_stabilizers([
+                stim.PauliString(stab) for stab in self.code_stabilizers
             ]).to_circuit()
 
-        self.left_circuit = self.original_stim_circuit
-        self.right_circuit = None
+        # prefix -- make sure qubits at the end are not totally deleted 
+        self.prefix = stim.Circuit()
+        self.prefix = prefix.append_operation("I", range(self.num_qubits))
+        self.stim_generated_circuit = self.prefix + self.stim_generated_circuit
+
+        self.current_circuit_id = -1
+        self.circuit_dict = get_small_tough_circuits()
+        self.circuit_dict[0] = {'left': self.stim_generated_circuit, 
+                                'last_left': self.stim_generated_circuit,
+                                'right': stim.Circuit(),
+                                'last_right': stim.Circuit()}
+
+        self.left_circuit, self.last_successful_left_circuit, self.right_circuit, self.last_successful_right_circuit = self.switch_circuit()
+        print("Left circuit in constructor after prepending I gates at the beginning: ")
+        print(self.left_circuit)
         
-        self.max_hamming = float(sum([len(s) for s in self.original_stabilizers]))
+        self.max_hamming = float(sum([len(s) for s in self.code_stabilizers]))
         self.min_hamming = 1000000.0
         self.random_layer = None
-
-        print('MAX HAMMING computed in constructor: ', self.max_hamming)
 
         """
         Used for the reward function
@@ -352,7 +411,7 @@ class CircuitEnv():
         self.param_center = distance_arr[param_ctr_idx]
         self.param_sigma = np.std(distance_arr)
 
-        print(self.original_stabilizers)
+        print(self.code_stabilizers)
 
         if self.fn_type in ['F0_energy_depth_up']:
             self.kickstart_depth = conf['env']['kickstart_depth']
@@ -372,7 +431,16 @@ class CircuitEnv():
 
         self.action_size = (self.num_qubits*(self.num_qubits))
         self.previous_action = [0, 0, 0, 0]
-        
+    
+    def switch_circuit():
+        self.current_circuit_id = self.current_circuit_id + 1
+        if self.current_circuit_id > len(self.circuit_dict):
+            self.current_circuit_id = 0
+
+        latest_data_dict = self.circuit_dict[self.current_circuit_id]
+        return latest_data_dict['left'], latest_data_dict['last_left'], latest_data_dict['right'], latest_data_dict['last_right']
+
+
     def step(self, action, train_flag = True) :
         
         """
@@ -419,14 +487,6 @@ class CircuitEnv():
         self.illegal_action_new()
 
         self.state = next_state.clone()
-
-        # self.current_circuit = self.get_cirq_circuit()        
-
-        # if self.fn_type in ['F0_energy_untweaked', 'F0_energy_depth_up', 'F0_hamming']:
-        #     self.current_len = self._len_move_to_left()
-        #     self.current_gate_count = self._get_gate_count()
-        #     self.current_cost = self._get_average_cost()
-        #     self.current_degree = self._get_average_degree()
         
         hamming_distance, matched, stabilizers_save, total_gate_count, stim_circuit = self.get_hamming()
         stabilizers_save = [str(ps) for ps in stabilizers_save]
@@ -448,12 +508,17 @@ class CircuitEnv():
         # layers_done = self.step_counter == (self.random_layer - 1)
 
         if hamming_distance == 0.0:
-            print('-------BEST OF RL-------')
+            print("-----------------------")
+            print("Left circuit:")
+            print(self.left_circuit)
+            print("Right circuit:")
             print(self.right_circuit)
-            print('-------BEST OF RL-------')
-            stim_rl_circuit = self.left_circuit + self.right_circuit
-            self.good_rl_circuit[self.ep_id] = self.right_circuit
-            self.good_rl_circuit_gates[self.ep_id] = self.get_stim_gate_count(stim_rl_circuit)
+            print("-----------------------")
+            self.last_successful_left_circuit = copy.deepcopy(self.left_circuit)
+            self.last_successful_right_circuit = copy.deepcopy(self.right_circuit)
+
+            print("Current successful circuit:")
+            print(self.last_successful_left_circuit + self.last_successful_right_circuit)
 
         done = int(energy_done or layers_done)
 
@@ -500,29 +565,23 @@ class CircuitEnv():
         self.error_noiseless = 0
         
         if self.ep_id % self.update_init_ep == 0:
-            print('HERE')
-            print(self.left_circuit)
+            print('left successful circuit before I cut at update_init_ep')
+            print(self.last_successful_left_circuit)
+
+            print('right successful circuit before I cut at update_init_ep')
+            print(self.last_successful_right_circuit)
+
             self.left_circuit = self.get_stim_circuit_remove_random()
+            self.right_circuit = copy.deepcopy(self.last_successful_right_circuit)
+
             print('---------------')
+            print('left circuit after I cut at update_init_ep')
             print(self.left_circuit)
-            # exit()
-        # if self.ep_id == 2050:
-            # exit()
+
         self.ep_id += 1
 
         self.prev_hamming, _, _, _, _ = self.get_hamming(state)
         print('Initial hamming:', self.prev_hamming)
-
-        # # random halting
-        # if self.num_qubits == 16:
-        #     print("Applying random halting for d4")
-        #     generated_num_layers = np.random.negative_binomial(25, 0.33, size=1)[0]
-        #     print(generated_num_layers)
-        #     if generated_num_layers > 65:
-        #         generated_num_layers = 65
-        #     if generated_num_layers < 40:
-        #         generated_num_layers = 40
-        #     self.random_layer = generated_num_layers
 
         state = state[:, :self.num_qubits+1]
         return state.reshape(-1).to(self.device)
@@ -552,43 +611,14 @@ class CircuitEnv():
         """
         The remove count is basically the count of operations that we remove (randomly)
         """
-        if self.ep_id == 0:
-            stim_circuit = self.original_stim_circuit
-        elif len(self.good_rl_circuit_gates.keys()) == 0:
-            # if you didn't find anything in the last k episodes
-            stim_circuit = self.original_stim_circuit
-            random.seed(random.randint(30, 1000))
-        else:
-            max_ep = max(self.good_rl_circuit_gates.keys())
-            if not ((self.ep_id - self.update_init_ep) <= max_ep < self.ep_id):
-                random.seed(random.randint(30, 1000))
-
-            # if len(list(self.good_rl_circuit_gates.keys())) !=0:
-            min_key = min(self.good_rl_circuit_gates, key=self.good_rl_circuit_gates.get)
-            stim_circuit = self.left_circuit + self.good_rl_circuit[min_key]
-            # print('----updated stim circuit-----')
-            # print(stim_circuit)
-            # s = stim.TableauSimulator()
-            # s.do_circuit(stim_circuit)
-            # current_canonical_stabilizers = s.canonical_stabilizers()
-            # hamming_distance, matched = self.get_hamming_distance(current_canonical_stabilizers)
-            # print(hamming_distance, 'hamming of updated stim circuit')
-            # print('----updated stim circuit-----')
-            # else:
-            #     """
-            #     IF NO GOOD CIRCUIT FOUND START FROM THE PREVIOUS CIRCUIT AGAIN!
-            #     """
-            #     min_key = min(self.good_rl_circuit_gates, key=self.good_rl_circuit_gates.get)
-            #     stim_circuit = self.good_rl_circuit[min_key//2]
-        
-
-        total_gate_count = self.get_stim_gate_count(self.left_circuit)
+        random.seed(random.randint(30, 1000))
+        total_gate_count = self.get_stim_gate_count(self.last_successful_left_circuit)
 
         all_stim_gates = {}
         ids_to_sample = []
 
         current_id = 0
-        for i, inst in enumerate(self.left_circuit):
+        for i, inst in enumerate(self.last_successful_left_circuit):
             pairwise_targets = list(self.pairwise(inst.targets_copy()))
 
             for target_pair in pairwise_targets:
@@ -615,10 +645,6 @@ class CircuitEnv():
             else: 
                 print(f'Removing {inst_name} gate with targets {target_pair}')
                 assert inst_name != 'H'
-
-        print('---- two gate removed stim circuit ----')
-        print(circuit_cut)
-        print('---- two gate removed stim circuit ----')
 
         return circuit_cut
 
@@ -700,13 +726,13 @@ class CircuitEnv():
         if len(current_stabilizers) == 0:
             return self.max_hamming, 0.0
         
-        if len(self.original_stabilizers) != len(current_stabilizers):
+        if len(self.code_stabilizers) != len(current_stabilizers):
             return self.max_hamming, 0.0
         
         hamming_sum = 0.0
         matched_sum = 0.0
 
-        for x, y in zip(self.original_stabilizers, current_stabilizers):
+        for x, y in zip(self.code_stabilizers, current_stabilizers):
             h, m = self.get_xyz_distance(x, y)
             hamming_sum += h
             matched_sum += m
@@ -719,10 +745,10 @@ class CircuitEnv():
     def get_matched_count(self, current_stabilizers: list[str]) -> int:
         matched_count = 0
         current_stabilizers = [str(ps)[1:] for ps in current_stabilizers]
-        original_stabilizers = [str(ps)[1:] for ps in self.original_stabilizers]
+        code_stabilizers = [str(ps)[1:] for ps in self.code_stabilizers]
 
         for s in current_stabilizers:
-            if s in original_stabilizers:
+            if s in code_stabilizers:
                 matched_count += 1
         
         return float(matched_count)
@@ -747,7 +773,8 @@ class CircuitEnv():
     
 
     def get_hamming(self, thetas=None):
-        self.right_circuit = self.make_circuit(thetas)
+        self.right_circuit = self.last_successful_right_circuit + self.make_circuit(thetas)
+
         stim_circuit = self.left_circuit + self.right_circuit
 
         total_gate_count = 0
@@ -758,64 +785,9 @@ class CircuitEnv():
 
         hamming_distance, matched = self.get_hamming_distance(current_canonical_stabilizers)
 
-        if hamming_distance == 0.0:
-            print(stim_circuit)
-            print(current_canonical_stabilizers)
-        
         matched = self.get_matched_count(current_canonical_stabilizers)
 
         return hamming_distance, matched, current_canonical_stabilizers, total_gate_count, stim_circuit
-
-    
-    def _get_average_cost(self) -> float:
-        """
-        Returns an estimation of the cost that the circuit has. This is computed as a weighted average of the gates
-        in the circuit. It is assumed that multi-qubit gates are more expensive than single qubit gates.
-        """
-        div_by = self.CNOT_WEIGHT + self.H_WEIGHT
-        cnots: int = 0
-        hs: int = 0
-        for moment in self.current_circuit:
-            for op in moment:
-                if op.gate == cirq.CNOT:
-                    cnots += 1
-                else:
-                    hs += 1
-        return (cnots * self.CNOT_WEIGHT + hs * self.H_WEIGHT) / div_by
-
-    def _get_gate_count(self) -> int:
-        counter: int = 0
-        for moment in self.current_circuit:
-            counter += len(moment)
-        return counter
-
-    def _get_average_degree(self) -> float:
-            """
-            This function computes the degree of CNOTs that each qubits has. The more parallel CNOTs (with multiple
-            targets) in the circuit, the better (lower) the degree value should be.
-
-            Returns:
-            -------
-                the average of all degrees
-            """
-            degrees = np.zeros(len(self.current_circuit.all_qubits()))
-            qubit_dict = dict()
-            for qubit in self.current_circuit.all_qubits():
-                qubit_dict[qubit] = len(qubit_dict)
-
-            for moment in self.current_circuit:
-                for op in moment:
-                    if op.gate == cirq.CNOT: 
-                        indices = [qubit_dict[q] for q in op.qubits]
-                        degrees[indices] += 1
-
-            if np.mean(degrees) == 0:
-                return 1.0
-            return np.mean(degrees)
-
-    def _len_move_to_left(self) -> int:
-        n_circuit = cirq.Circuit(self.current_circuit.all_operations(), strategy=cirq.InsertStrategy.EARLIEST)
-        return len(n_circuit)
             
 
     def reward_fn(self, hamming_distance, matched=None, total_gate_count=None):

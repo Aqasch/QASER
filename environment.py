@@ -576,8 +576,10 @@ class CircuitEnv():
             return max(0, min_total - current_total)
         
         elif self.fn_type == 'F0_energy_untweaked':
+            print(self.energy)
+            print(self.min_eig)
             return pow((self.max_len / (self.current_len+1)) + (self.max_cost / self.current_cost),
-                    (self.energy/self.min_eig))
+                    (self.energy / self.min_eig))
 
         elif self.fn_type == 'F0_energy_depth_up':
             return pow((self.energy / self.min_eig) + (self.max_cost / self.current_cost),
