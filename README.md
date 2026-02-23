@@ -1,4 +1,4 @@
-# qhronos
+# QASER
 
 Code for paper [QASER: Breaking the Depth vs. Accuracy Trade-Off for Quantum Architecture Search](https://arxiv.org/abs/2511.16272)
 
